@@ -17,4 +17,10 @@ Cada autor tendrá su nombre, id autor, país, fecha de nacimiento, biografía.
 
 Cada editorial tendrá su nombre, id editorial, sede.
 
+# Instrucciones de uso
+
+En una terminal ejecutar:
+  - Posicionarse en el directorio raíz del proyecto. 
+  - go run .
+  - Acceder a https://localhost:8080
 
