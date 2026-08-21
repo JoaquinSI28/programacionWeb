@@ -15,20 +15,18 @@ func main() {
   // ¡Automáticamente sirve index.html para directorios!
   fileServer := http.FileServer(http.Dir(staticDir))
 
-	// 2. Registra un manejador (handler) para la ruta raíz "/"
-	http.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
-		// 3. Establece la cabecera Content-Type
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		// 4. Escribe el HTML en la respuesta
-		fmt.Fprint(w, htmlContent)
-	})
-  // 5. Define el puerto y muestra un mensaje
-	port := ":8080"
-	fmt.Printf("Servidor escuchando en http://localhost%s\n", port)
+  // 3. Registra el manejador para que atienda todas las peticiones ("/").
+  // Usamos http.Handle porque fileServer es un http.Handler.
+  http.Handle("/", fileServer)
 
-	// 6. Inicia el servidor HTTP
-	err := http.ListenAndServe(port, nil)
-	if err != nil {
-		fmt.Printf("Error al iniciar el servidor: %s\n", err)
-	}
+  // 4. Define el puerto y muestra un mensaje.
+  port := ":8080"
+  fmt.Printf("Servidor ESTÁTICO escuchando en http://localhost%s\n", port)
+  fmt.Printf("Sirviendo archivos desde: %s\n", staticDir)
+
+  // 5. Inicia el servidor.
+  err := http.ListenAndServe(port, nil)
+  if err != nil {
+    fmt.Printf("Error al iniciar el servidor: %s\n", err)
+  }
 }
