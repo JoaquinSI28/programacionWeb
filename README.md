@@ -22,5 +22,5 @@ Cada editorial tendrá su nombre, id editorial, sede.
 En una terminal ejecutar:
   - Posicionarse en el directorio raíz del proyecto. 
   - go run .
-  - Acceder a https://localhost:8080
+  - Acceder a http://localhost:8080
 
