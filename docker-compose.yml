@@ -1,0 +1,40 @@
+services:
+  sqlc:
+    image: sqlc/sqlc:latest
+    volumes:
+      - .:/src
+    working_dir: /src
+    command: generate
+
+  api:
+    build: ./api
+    container_name: go-api
+    ports:
+      - "8080:8080"
+    environment:
+      - DB_HOST=database
+      - DB_PORT=5432
+      - DB_USER=${POSTGRES_USER}
+      - DB_PASSWORD=${POSTGRES_PASSWORD}
+      - DB_NAME=${POSTGRES_DB}
+    depends_on:
+      sqlc:
+        condition: service_completed_successfully
+      database:
+        condition: service_started
+
+  database:
+    image: postgres:15
+    container_name: postgres-db
+    environment:
+      - POSTGRES_DB=${POSTGRES_DB}
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db/schema/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+
+volumes:
+  pgdata:
