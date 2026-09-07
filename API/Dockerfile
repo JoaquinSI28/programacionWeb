@@ -2,15 +2,14 @@
 FROM golang:1.24-alpine AS builder
 WORKDIR /app
 
-# Copiamos solo el go.mod para evitar errores si go.sum no existe aún
-COPY go.mod ./
-
-# Si ya tenés un archivo go.sum, descomentá la línea de abajo:
-# COPY go.sum ./
-
-RUN go mod download
+# Copiamos todo el código fuente de una vez para que Go tenga el contexto completo
 COPY . .
+
+# Descargamos las dependencias y el driver de Postgres directamente
+RUN go mod tidy
 RUN go get github.com/lib/pq
+
+# Compilamos la aplicación de Go
 RUN CGO_ENABLED=0 go build -o /app/api .
 
 # Etapa 2: imagen final
