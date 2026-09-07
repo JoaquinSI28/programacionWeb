@@ -1,5 +1,5 @@
 # Etapa 1: compilación
-FROM golang:1.24-alpine AS builder
+FROM golang:1.26-alpine AS builder
 WORKDIR /app
 
 # Copiamos todo el código fuente de una vez para que Go tenga el contexto completo
