@@ -6,16 +6,32 @@ del curso 2026.
 # Dominio
 Un registro de libros leídos será el tema principal de la app.
 
-# Información que se guardara
-Cada libro contendrá, id del libro, titulo, id autor, id editorial, fecha de lanzamiento, cantidad de paginas.
+# Persistencia
 
-Lee (relación Usuario lee libro): Id usuario, Id libro, estado, reseña.
+La aplicación utiliza PostgreSQL como sistema de persistencia. El esquema de la base de datos se encuentra en `db/schema/schema.sql` y se monta en el contenedor de PostgreSQL para crear las tablas cuando se inicializa una base nueva.
 
-Cada usuario tendrá su nombre de usuario, id usuario, lista leídos (Lee), mail, contraseña.
+## Modelo de datos
 
-Cada autor tendrá su nombre, id autor, país, fecha de nacimiento, biografía.
+- `Autor`: almacena el nombre, país, fecha de nacimiento y biografía de cada autor.
+- `Editorial`: almacena el nombre y la sede de cada editorial.
+- `Usuario`: almacena el nombre de usuario, correo electrónico y contraseña. El nombre de usuario y el correo son únicos.
+- `Libro`: almacena el título, fecha de lanzamiento, cantidad de páginas y sus relaciones con un autor y una editorial.
+- `Lee`: relaciona usuarios con libros y almacena el estado de lectura y la reseña. La combinación `id_usuario` e `id_libro` es única.
 
-Cada editorial tendrá su nombre, id editorial, sede.
+Las relaciones principales son:
+
+```text
+Autor 1 ---- N Libro N ---- 1 Editorial
+Usuario N ---- N Libro (a través de Lee)
+```
+
+Las claves foráneas garantizan que un libro solo pueda referenciar autores y editoriales existentes, y que un registro de lectura solo pueda referenciar usuarios y libros existentes.
+
+## Acceso a los datos
+
+Las consultas SQL se encuentran en `db/queries/`. sqlc las transforma en código Go dentro de `db/sqlc/`, que es una carpeta generada automáticamente y no se versiona. La configuración de esta generación está en `sqlc.yaml`.
+
+Docker Compose utiliza un volumen llamado `pgdata` para conservar los datos de PostgreSQL entre ejecuciones. El comando `make test` elimina ese volumen al finalizar porque los tests utilizan una base de datos temporal.
 
 # Instrucciones de uso
 

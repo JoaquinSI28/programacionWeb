@@ -55,17 +55,21 @@ func (q *Queries) DeleteLibro(ctx context.Context, idLibro int32) error {
 }
 
 const getLibro = `-- name: GetLibro :one
-SELECT FROM Libro 
+SELECT id_libro, titulo, id_autor, id_editorial, fecha_lanzamiento, cantidad_paginas FROM Libro
 WHERE id_libro = $1
 `
 
-type GetLibroRow struct {
-}
-
-func (q *Queries) GetLibro(ctx context.Context, idLibro int32) (GetLibroRow, error) {
+func (q *Queries) GetLibro(ctx context.Context, idLibro int32) (Libro, error) {
 	row := q.db.QueryRowContext(ctx, getLibro, idLibro)
-	var i GetLibroRow
-	err := row.Scan()
+	var i Libro
+	err := row.Scan(
+		&i.IDLibro,
+		&i.Titulo,
+		&i.IDAutor,
+		&i.IDEditorial,
+		&i.FechaLanzamiento,
+		&i.CantidadPaginas,
+	)
 	return i, err
 }
 

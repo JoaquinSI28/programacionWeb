@@ -4,7 +4,7 @@ VALUES ($1, $2, $3, $4, $5)
 RETURNING *;
 
 -- name: GetLibro :one
-SELECT FROM Libro 
+SELECT * FROM Libro
 WHERE id_libro = $1;
 
 -- name: ListLibros :many
