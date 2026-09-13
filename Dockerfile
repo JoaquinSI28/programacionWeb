@@ -20,6 +20,6 @@ RUN adduser -D -u 1000 app
 USER app
 WORKDIR /app
 COPY --from=builder /app/api /usr/local/bin/api
-COPY --from=builder /app/static ./static
+COPY --from=builder /app/API/static ./static
 EXPOSE 8080
 CMD ["api"]

@@ -7,7 +7,9 @@ services:
     command: generate
 
   api:
-    build: ./API
+    build:
+      context: .
+      dockerfile: Dockerfile
     container_name: go-api
     ports:
       - "8080:8080"
