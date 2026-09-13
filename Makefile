@@ -1,16 +1,27 @@
-.PHONY: test-all up test down
+.PHONY: test test-all generate up up-db wait-db down
 
-test-all:
-	@$(MAKE) up
-	@$(MAKE) test || ( $(MAKE) down && exit 1 )
-	@$(MAKE) down
+generate:
+	docker compose run --rm sqlc
+
+test:
+	@trap '$(MAKE) down' EXIT; \
+	$(MAKE) up-db; \
+	$(MAKE) generate; \
+	$(MAKE) wait-db; \
+	go test ./db/... -v
+
+test-all: test
 
 up:
 	docker compose up -d
-	sleep 3
 
-test:
-	go test ./db/sqlc -v
+up-db:
+	docker compose up -d database
+
+wait-db:
+	@until docker compose exec -T database pg_isready -U postgres -d prueba >/dev/null 2>&1; do \
+		sleep 1; \
+	done
 
 down:
 	docker compose down -v

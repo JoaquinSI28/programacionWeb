@@ -19,8 +19,27 @@ Cada editorial tendrá su nombre, id editorial, sede.
 
 # Instrucciones de uso
 
-En una terminal ejecutar:
-  - Posicionarse en el directorio raíz del proyecto. 
-  - go run .
-  - Acceder a http://localhost:8080
+Solo es necesario clonar el repositorio, ubicarse en su carpeta raíz y ejecutar:
+
+```bash
+make test
+```
+
+El comando se encarga de:
+
+1. Levantar PostgreSQL con valores de desarrollo predeterminados.
+2. Generar automáticamente el código de `db/sqlc/`.
+3. Esperar a que PostgreSQL esté listo.
+4. Ejecutar los tests de Go.
+5. Detener y eliminar los contenedores al finalizar, incluso si un test falla.
+
+Si se necesitan otros datos de conexión, se puede crear un archivo `.env` en la raíz antes de ejecutar `make test`, usando estas variables:
+
+```env
+POSTGRES_DB=prueba
+POSTGRES_USER=postgres
+POSTGRES_PASSWORD=postgres
+```
+
+El archivo `.env` es local y no debe subirse al repositorio.
 
