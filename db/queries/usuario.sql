@@ -4,7 +4,7 @@ VALUES ($1, $2, $3)
 RETURNING *;
 
 -- name: GetUsuario :one
-SELECT FROM Usuario 
+SELECT * FROM Usuario 
 WHERE id_usuario = $1;
 
 -- name: ListUsuarios :many

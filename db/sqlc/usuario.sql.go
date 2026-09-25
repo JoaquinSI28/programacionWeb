@@ -44,17 +44,19 @@ func (q *Queries) DeleteUsuario(ctx context.Context, idUsuario int32) error {
 }
 
 const getUsuario = `-- name: GetUsuario :one
-SELECT FROM Usuario 
+SELECT id_usuario, nombre_usuario, mail, contrasena FROM Usuario 
 WHERE id_usuario = $1
 `
 
-type GetUsuarioRow struct {
-}
-
-func (q *Queries) GetUsuario(ctx context.Context, idUsuario int32) (GetUsuarioRow, error) {
+func (q *Queries) GetUsuario(ctx context.Context, idUsuario int32) (Usuario, error) {
 	row := q.db.QueryRowContext(ctx, getUsuario, idUsuario)
-	var i GetUsuarioRow
-	err := row.Scan()
+	var i Usuario
+	err := row.Scan(
+		&i.IDUsuario,
+		&i.NombreUsuario,
+		&i.Mail,
+		&i.Contrasena,
+	)
 	return i, err
 }
 
