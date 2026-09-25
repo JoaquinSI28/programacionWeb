@@ -4,7 +4,7 @@ VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: GetLee :one
-SELECT FROM Lee 
+SELECT * FROM Lee 
 WHERE id_usuario = $1 AND id_libro = $2;
 
 -- name: ListLees :many

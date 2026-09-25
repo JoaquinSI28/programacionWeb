@@ -39,17 +39,14 @@ func (q *Queries) DeleteEditorial(ctx context.Context, idEditorial int32) error 
 }
 
 const getEditorial = `-- name: GetEditorial :one
-SELECT FROM Editorial 
+SELECT id_editorial, nombre, sede FROM Editorial 
 WHERE id_editorial = $1
 `
 
-type GetEditorialRow struct {
-}
-
-func (q *Queries) GetEditorial(ctx context.Context, idEditorial int32) (GetEditorialRow, error) {
+func (q *Queries) GetEditorial(ctx context.Context, idEditorial int32) (Editorial, error) {
 	row := q.db.QueryRowContext(ctx, getEditorial, idEditorial)
-	var i GetEditorialRow
-	err := row.Scan()
+	var i Editorial
+	err := row.Scan(&i.IDEditorial, &i.Nombre, &i.Sede)
 	return i, err
 }
 

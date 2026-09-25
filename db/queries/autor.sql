@@ -4,7 +4,7 @@ VALUES ($1, $2, $3, $4)
 RETURNING *;
 
 -- name: GetAutor :one
-SELECT FROM Autor 
+SELECT * FROM Autor 
 WHERE id_autor = $1;
 
 -- name: ListAutores :many

@@ -56,7 +56,7 @@ func (q *Queries) DeleteLee(ctx context.Context, arg DeleteLeeParams) error {
 }
 
 const getLee = `-- name: GetLee :one
-SELECT FROM Lee 
+SELECT id_usuario, id_libro, estado, resena FROM Lee 
 WHERE id_usuario = $1 AND id_libro = $2
 `
 
@@ -65,13 +65,15 @@ type GetLeeParams struct {
 	IDLibro   int32
 }
 
-type GetLeeRow struct {
-}
-
-func (q *Queries) GetLee(ctx context.Context, arg GetLeeParams) (GetLeeRow, error) {
+func (q *Queries) GetLee(ctx context.Context, arg GetLeeParams) (Lee, error) {
 	row := q.db.QueryRowContext(ctx, getLee, arg.IDUsuario, arg.IDLibro)
-	var i GetLeeRow
-	err := row.Scan()
+	var i Lee
+	err := row.Scan(
+		&i.IDUsuario,
+		&i.IDLibro,
+		&i.Estado,
+		&i.Resena,
+	)
 	return i, err
 }
 

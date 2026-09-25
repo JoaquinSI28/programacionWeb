@@ -4,7 +4,7 @@ VALUES ($1, $2)
 RETURNING *;
 
 -- name: GetEditorial :one
-SELECT FROM Editorial 
+SELECT * FROM Editorial 
 WHERE id_editorial = $1;
 
 -- name: ListEditoriales :many

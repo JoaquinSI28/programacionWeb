@@ -52,17 +52,20 @@ func (q *Queries) DeleteAutor(ctx context.Context, idAutor int32) error {
 }
 
 const getAutor = `-- name: GetAutor :one
-SELECT FROM Autor 
+SELECT id_autor, nombre, pais, fecha_nacimiento, biografia FROM Autor 
 WHERE id_autor = $1
 `
 
-type GetAutorRow struct {
-}
-
-func (q *Queries) GetAutor(ctx context.Context, idAutor int32) (GetAutorRow, error) {
+func (q *Queries) GetAutor(ctx context.Context, idAutor int32) (Autor, error) {
 	row := q.db.QueryRowContext(ctx, getAutor, idAutor)
-	var i GetAutorRow
-	err := row.Scan()
+	var i Autor
+	err := row.Scan(
+		&i.IDAutor,
+		&i.Nombre,
+		&i.Pais,
+		&i.FechaNacimiento,
+		&i.Biografia,
+	)
 	return i, err
 }
 
