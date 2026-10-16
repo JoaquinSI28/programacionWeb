@@ -33,7 +33,7 @@ Las consultas SQL se encuentran en `db/queries/`. sqlc las transforma en código
 
 Docker Compose utiliza un volumen llamado `pgdata` para conservar los datos de PostgreSQL entre ejecuciones. El comando `make test` elimina ese volumen al finalizar porque los tests utilizan una base de datos temporal.
 
-# Instrucciones de uso
+# Pruebas de persistencia
 
 Solo es necesario clonar el repositorio, ubicarse en su carpeta raíz y ejecutar:
 
@@ -70,15 +70,21 @@ make up
 
 Genera los archivos de sqlc, construye la imagen de la API y levanta PostgreSQL y el servidor. Espera a que ambos servicios estén saludables. La aplicación queda disponible en `http://localhost:8080`.
 
-Para probar la API:
+Para probar la API de manera rapida:
 
 ```bash
-make test-hurl
+make test-hurl 
 ```
 
 Prepara PostgreSQL, genera sqlc, construye e inicia la API y ejecuta `requests.hurl`. Las pruebas verifican creación, listado, búsqueda por ID, actualización y eliminación de usuarios, libros, autores y editoriales. Hurl se ejecuta dentro de Docker.
 
 **Al terminar las pruebas se eliminan los contenedores y el volumen de PostgreSQL, incluidos sus datos.**
+
+Para probar la API con mas detalle, teniendo hurl instalado:
+
+```bash
+hurl --test requests.hurl
+```
 
 Para detener la aplicación conservando los datos:
 
