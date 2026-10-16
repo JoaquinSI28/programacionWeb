@@ -59,3 +59,35 @@ POSTGRES_PASSWORD=postgres
 
 El archivo `.env` es local y no debe subirse al repositorio.
 
+
+## Ejecución y pruebas del CRUD
+
+Para iniciar la aplicación:
+
+```bash
+make up
+```
+
+Genera los archivos de sqlc, construye la imagen de la API y levanta PostgreSQL y el servidor. Espera a que ambos servicios estén saludables. La aplicación queda disponible en `http://localhost:8080`.
+
+Para probar la API:
+
+```bash
+make test-hurl
+```
+
+Prepara PostgreSQL, genera sqlc, construye e inicia la API y ejecuta `requests.hurl`. Las pruebas verifican creación, listado, búsqueda por ID, actualización y eliminación de usuarios, libros, autores y editoriales. Hurl se ejecuta dentro de Docker.
+
+**Al terminar las pruebas se eliminan los contenedores y el volumen de PostgreSQL, incluidos sus datos.**
+
+Para detener la aplicación conservando los datos:
+
+```bash
+docker compose down
+```
+
+Para borrar los contenedores, imágenes y volúmenes del proyecto, incluidos los datos de PostgreSQL:
+
+```bash
+docker compose --profile test down --rmi all --volumes --remove-orphans
+```

@@ -6,6 +6,17 @@ services:
     working_dir: /src
     command: generate
 
+  hurl:
+    image: ghcr.io/orange-opensource/hurl:latest
+    profiles: [test]
+    network_mode: service:api
+    volumes:
+      - ./requests.hurl:/tests/requests.hurl:ro
+    command: ["--test", "/tests/requests.hurl"]
+    depends_on:
+      api:
+        condition: service_healthy
+
   api:
     build:
       context: .
@@ -19,11 +30,17 @@ services:
       - DB_USER=${POSTGRES_USER:-postgres}
       - DB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
       - DB_NAME=${POSTGRES_DB:-prueba}
+    healthcheck:
+      test: ["CMD", "wget", "-q", "-T", "2", "-O", "/dev/null", "http://localhost:8080/"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
     depends_on:
       sqlc:
         condition: service_completed_successfully
       database:
-        condition: service_started
+        condition: service_healthy
 
   database:
     image: postgres:15
@@ -32,6 +49,12 @@ services:
       - POSTGRES_DB=${POSTGRES_DB:-prueba}
       - POSTGRES_USER=${POSTGRES_USER:-postgres}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+      start_period: 5s
     ports:
       - "5432:5432"
     volumes:

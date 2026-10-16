@@ -1,27 +1,31 @@
-.PHONY: test test-all generate up up-db wait-db down
+.PHONY: test test-hurl test-all generate up up-api up-db down
 
 generate:
 	docker compose run --rm sqlc
 
 test:
-	@trap '$(MAKE) down' EXIT; \
+	@set -e; \
+	trap '$(MAKE) down' EXIT; \
 	$(MAKE) up-db; \
 	$(MAKE) generate; \
-	$(MAKE) wait-db; \
 	go test ./db/... -v
+
+test-hurl:
+	@set -e; \
+	trap '$(MAKE) down' EXIT; \
+	$(MAKE) up-db; \
+	$(MAKE) up-api; \
+	docker compose run --rm --no-deps hurl
 
 test-all: test
 
-up:
-	docker compose up -d
+up: up-api
+
+up-api: generate
+	docker compose up -d --build --wait --wait-timeout 90 api
 
 up-db:
-	docker compose up -d database
-
-wait-db:
-	@until docker compose exec -T database pg_isready -U postgres -d prueba >/dev/null 2>&1; do \
-		sleep 1; \
-	done
+	docker compose up -d --wait --wait-timeout 60 database
 
 down:
-	docker compose down -v
+	docker compose --profile test down -v

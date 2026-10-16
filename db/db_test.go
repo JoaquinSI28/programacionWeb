@@ -10,17 +10,21 @@ import (
 	_ "github.com/lib/pq"
 )
 
-func TestUsuario_CRUD(t *testing.T) {
-	ctx := context.Background()
+func newQueries(t *testing.T) *db.Queries {
+	t.Helper()
 
 	conn, err := sql.Open("postgres", "postgresql://postgres:postgres@localhost:5432/prueba?sslmode=disable")
 	if err != nil {
 		t.Fatalf("No se pudo conectar: %v", err)
 	}
-	defer conn.Close()
+	t.Cleanup(func() { conn.Close() })
 
-	queries := db.New(conn)
-	t.Log("Conexión a la base de datos inicializada exitosamente")
+	return db.New(conn)
+}
+
+func TestUsuario_CRUD(t *testing.T) {
+	ctx := context.Background()
+	queries := newQueries(t)
 
 	// 1. CreateUsuario
 	createParams := db.CreateUsuarioParams{
@@ -90,17 +94,15 @@ func TestUsuario_CRUD(t *testing.T) {
 
 func TestLibro_CRUD(t *testing.T) {
 	ctx := context.Background()
+	queries := newQueries(t)
+	fechaLanzamiento := time.Date(2024, time.January, 15, 0, 0, 0, 0, time.UTC)
+	fechaNacimiento := time.Date(1980, time.January, 1, 0, 0, 0, 0, time.UTC)
 
-	conn, err := sql.Open("postgres", "postgresql://postgres:postgres@localhost:5432/prueba?sslmode=disable")
-	if err != nil {
-		t.Fatalf("No se pudo conectar: %v", err)
-	}
-	defer conn.Close()
-
-	queries := db.New(conn)
 	autor, err := queries.CreateAutor(ctx, db.CreateAutorParams{
-		Nombre: "Autor libro test",
-		Pais:   sql.NullString{String: "Argentina", Valid: true},
+		Nombre:          "Autor libro test",
+		Pais:            "Argentina",
+		FechaNacimiento: fechaNacimiento,
+		Biografia:       "Biografía de prueba",
 	})
 	if err != nil {
 		t.Fatalf("Fallo en CreateAutor: %v", err)
@@ -109,7 +111,7 @@ func TestLibro_CRUD(t *testing.T) {
 
 	editorial, err := queries.CreateEditorial(ctx, db.CreateEditorialParams{
 		Nombre: "Editorial libro test",
-		Sede:   sql.NullString{String: "Buenos Aires", Valid: true},
+		Sede:   "Buenos Aires",
 	})
 	if err != nil {
 		t.Fatalf("Fallo en CreateEditorial: %v", err)
@@ -118,10 +120,10 @@ func TestLibro_CRUD(t *testing.T) {
 
 	createParams := db.CreateLibroParams{
 		Titulo:           "Libro de prueba",
-		IDAutor:          sql.NullInt32{Int32: autor.IDAutor, Valid: true},
-		IDEditorial:      sql.NullInt32{Int32: editorial.IDEditorial, Valid: true},
-		FechaLanzamiento: sql.NullTime{Time: time.Date(2024, time.January, 15, 0, 0, 0, 0, time.UTC), Valid: true},
-		CantidadPaginas:  sql.NullInt32{Int32: 250, Valid: true},
+		IDAutor:          autor.IDAutor,
+		IDEditorial:      editorial.IDEditorial,
+		FechaLanzamiento: fechaLanzamiento,
+		CantidadPaginas:  250,
 	}
 	libro, err := queries.CreateLibro(ctx, createParams)
 	if err != nil {
@@ -146,7 +148,7 @@ func TestLibro_CRUD(t *testing.T) {
 		IDAutor:          createParams.IDAutor,
 		IDEditorial:      createParams.IDEditorial,
 		FechaLanzamiento: createParams.FechaLanzamiento,
-		CantidadPaginas:  sql.NullInt32{Int32: 300, Valid: true},
+		CantidadPaginas:  300,
 	}
 	if err = queries.UpdateLibro(ctx, updateParams); err != nil {
 		t.Fatalf("Fallo en UpdateLibro: %v", err)

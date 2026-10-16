@@ -1,32 +1,77 @@
 package main
 
 import (
-  "fmt"
-  "net/http"
+	"database/sql"
+	"fmt"
+	"log"
+	"net/http"
+	"os"
+
+	dbsqlc "bookfly.com/db/sqlc"
+	"bookfly.com/repository"
+	_ "github.com/lib/pq"
 )
 
 func main() {
-  // 1. Define el directorio que contiene los archivos estáticos.
-  staticDir := "./static"
+	dsn := fmt.Sprintf(
+		"postgres://%s:%s@%s:%s/%s?sslmode=disable",
+		envOrDefault("DB_USER", "postgres"),
+		envOrDefault("DB_PASSWORD", "postgres"),
+		envOrDefault("DB_HOST", "localhost"),
+		envOrDefault("DB_PORT", "5432"),
+		envOrDefault("DB_NAME", "prueba"),
+	)
 
-  // 2. Crea un manejador (handler) de servidor de archivos.
-  // http.Dir convierte la ruta del directorio en un sistema de archivos HTTP.
-  // http.FileServer crea un manejador que sirve archivos desde ese sistema.
-  // ¡Automáticamente sirve index.html para directorios!
-  fileServer := http.FileServer(http.Dir(staticDir))
+	dbConn, err := sql.Open("postgres", dsn)
+	if err != nil {
+		log.Fatalf("Error al configurar la base de datos: %v", err)
+	}
+	defer dbConn.Close()
 
-  // 3. Registra el manejador para que atienda todas las peticiones ("/").
-  // Usamos http.Handle porque fileServer es un http.Handler.
-  http.Handle("/", fileServer)
+	if err := dbConn.Ping(); err != nil {
+		log.Fatalf("Error al conectar con la base de datos: %v", err)
+	}
+	log.Println("Conexión a la base de datos exitosa")
 
-  // 4. Define el puerto y muestra un mensaje.
-  port := ":8080"
-  fmt.Printf("Servidor ESTÁTICO escuchando en http://localhost%s\n", port)
-  fmt.Printf("Sirviendo archivos desde: %s\n", staticDir)
+	queries := dbsqlc.New(dbConn)
+	usuarioRepo := repository.NewUsuarioSQL(queries)
+	libroRepo := repository.NewLibroSQL(queries)
+	autorRepo := repository.NewAutorSQL(queries)
+	editorialRepo := repository.NewEditorialSQL(queries)
+	usuarios := usuarioHandler(usuarioRepo)
+	libros := libroHandler(libroRepo)
+	autores := autorHandler(autorRepo)
+	editoriales := editorialHandler(editorialRepo)
+	http.Handle("GET /usuarios/{id}", usuarios)
+	http.Handle("POST /usuarios", usuarios)
+	http.Handle("GET /usuarios", usuarios)
+	http.Handle("PUT /usuarios/{id}", usuarios)
+	http.Handle("DELETE /usuarios/{id}", usuarios)
+	http.Handle("GET /libros/{id}", libros)
+	http.Handle("GET /libros", libros)
+	http.Handle("POST /libros", libros)
+	http.Handle("PUT /libros/{id}", libros)
+	http.Handle("DELETE /libros/{id}", libros)
+	http.Handle("GET /autores/{id}", autores)
+	http.Handle("GET /autores", autores)
+	http.Handle("POST /autores", autores)
+	http.Handle("PUT /autores/{id}", autores)
+	http.Handle("DELETE /autores/{id}", autores)
+	http.Handle("GET /editoriales/{id}", editoriales)
+	http.Handle("GET /editoriales", editoriales)
+	http.Handle("POST /editoriales", editoriales)
+	http.Handle("PUT /editoriales/{id}", editoriales)
+	http.Handle("DELETE /editoriales/{id}", editoriales)
+	http.Handle("/", http.FileServer(http.Dir("./static")))
 
-  // 5. Inicia el servidor.
-  err := http.ListenAndServe(port, nil)
-  if err != nil {
-    fmt.Printf("Error al iniciar el servidor: %s\n", err)
-  }
+	port := ":8080"
+	log.Printf("Servidor escuchando en http://localhost%s", port)
+	log.Fatal(http.ListenAndServe(port, nil))
+}
+
+func envOrDefault(name, fallback string) string {
+	if value := os.Getenv(name); value != "" {
+		return value
+	}
+	return fallback
 }
