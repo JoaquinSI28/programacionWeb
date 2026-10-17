@@ -164,3 +164,6 @@ Los errores se devuelven como JSON, por ejemplo `{"error":"Usuario no encontrado
 | 405 | El metodo no esta permitido para esa ruta |
 | 409 | Nombre de usuario o email repetido, o conflicto con registros relacionados |
 | 500 | Error interno del servidor |
+
+### Aclaraciones
+En esta entrega las contraseñas se almacenan en texto plano. Se optó por dejar el hashing de contraseñas y la autenticación para mas adelante.
