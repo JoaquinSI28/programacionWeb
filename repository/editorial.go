@@ -23,7 +23,7 @@ func (r *EditorialSQL) Create(ctx context.Context, nombre, sede string) (*logic.
 		Sede:   sede,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errorPersistencia(err)
 	}
 
 	return &logic.Editorial{
@@ -73,7 +73,7 @@ func (r *EditorialSQL) Update(ctx context.Context, id int32, nombre, sede string
 		Sede:        sede,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errorPersistencia(err)
 	}
 
 	return &logic.Editorial{
@@ -84,7 +84,7 @@ func (r *EditorialSQL) Update(ctx context.Context, id int32, nombre, sede string
 }
 
 func (r *EditorialSQL) Delete(ctx context.Context, id int32) error {
-	return r.queries.DeleteEditorial(ctx, id)
+	return errorPersistencia(r.queries.DeleteEditorial(ctx, id))
 }
 
 var _ logic.EditorialRepository = (*EditorialSQL)(nil)

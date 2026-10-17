@@ -3,6 +3,8 @@ package db_test
 import (
 	"context"
 	"database/sql"
+	"fmt"
+	"os"
 	"testing"
 	"time"
 
@@ -13,7 +15,11 @@ import (
 func newQueries(t *testing.T) *db.Queries {
 	t.Helper()
 
-	conn, err := sql.Open("postgres", "postgresql://postgres:postgres@localhost:5432/prueba?sslmode=disable")
+	dsn := fmt.Sprintf("postgresql://%s:%s@localhost:5432/%s?sslmode=disable",
+		envOrDefault("POSTGRES_USER", "postgres"),
+		envOrDefault("POSTGRES_PASSWORD", "postgres"),
+		envOrDefault("POSTGRES_DB", "prueba"))
+	conn, err := sql.Open("postgres", dsn)
 	if err != nil {
 		t.Fatalf("No se pudo conectar: %v", err)
 	}
@@ -181,4 +187,11 @@ func TestLibro_CRUD(t *testing.T) {
 		t.Errorf("Se esperaba sql.ErrNoRows, se obtuvo: %v", err)
 	}
 	t.Log("Verificación de borrado del libro exitosa")
+}
+
+func envOrDefault(name, fallback string) string {
+	if value := os.Getenv(name); value != "" {
+		return value
+	}
+	return fallback
 }

@@ -1,3 +1,6 @@
+-include .env
+export POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD
+
 .PHONY: test test-hurl test-all generate up up-api up-db down
 
 generate:
@@ -6,6 +9,7 @@ generate:
 test:
 	@set -e; \
 	trap '$(MAKE) down' EXIT; \
+	$(MAKE) down; \
 	$(MAKE) up-db; \
 	$(MAKE) generate; \
 	go test ./db/... -v
@@ -13,11 +17,14 @@ test:
 test-hurl:
 	@set -e; \
 	trap '$(MAKE) down' EXIT; \
+	$(MAKE) down; \
 	$(MAKE) up-db; \
 	$(MAKE) up-api; \
 	docker compose run --rm --no-deps hurl
 
-test-all: test
+test-all:
+	$(MAKE) test
+	$(MAKE) test-hurl
 
 up: up-api
 
@@ -28,4 +35,4 @@ up-db:
 	docker compose up -d --wait --wait-timeout 60 database
 
 down:
-	docker compose --profile test down -v
+	docker compose --profile test down -v --remove-orphans

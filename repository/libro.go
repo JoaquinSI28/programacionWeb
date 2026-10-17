@@ -27,7 +27,7 @@ func (r *LibroSQL) Create(ctx context.Context, idAutor int32, titulo string, idE
 		CantidadPaginas:  cantidadPaginas,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errorPersistencia(err)
 	}
 
 	return &logic.Libro{
@@ -83,7 +83,7 @@ func (r *LibroSQL) List(ctx context.Context) ([]*logic.Libro, error) {
 func (r *LibroSQL) Delete(ctx context.Context, id int32) error {
 	err := r.queries.DeleteLibro(ctx, id)
 	if err != nil {
-		return err
+		return errorPersistencia(err)
 	}
 	return nil
 }
@@ -98,7 +98,7 @@ func (r *LibroSQL) Update(ctx context.Context, id int32, idAutor int32, titulo s
 		CantidadPaginas:  cantidadPaginas,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errorPersistencia(err)
 	}
 
 	return &logic.Libro{

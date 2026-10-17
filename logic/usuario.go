@@ -5,6 +5,7 @@ import (
 	"errors"
 	"fmt"
 	"regexp"
+	"strings"
 )
 
 type Usuario struct {
@@ -17,7 +18,7 @@ type Usuario struct {
 var ErrUsuarioNoEncontrado = errors.New("usuario no encontrado")
 
 func validateNombre(nombre string) error {
-	if nombre == "" {
+	if strings.TrimSpace(nombre) == "" {
 		return &ErrorValidacion{Mensaje: "El nombre no puede estar vacío"}
 	}
 	return nil

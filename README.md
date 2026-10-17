@@ -31,7 +31,7 @@ Las claves foráneas garantizan que un libro solo pueda referenciar autores y ed
 
 Las consultas SQL se encuentran en `db/queries/`. sqlc las transforma en código Go dentro de `db/sqlc/`, que es una carpeta generada automáticamente y no se versiona. La configuración de esta generación está en `sqlc.yaml`.
 
-Docker Compose utiliza un volumen llamado `pgdata` para conservar los datos de PostgreSQL entre ejecuciones. El comando `make test` elimina ese volumen al finalizar porque los tests utilizan una base de datos temporal.
+Docker Compose utiliza un volumen llamado `pgdata` para conservar los datos de PostgreSQL entre ejecuciones. Los comandos de pruebas eliminan ese volumen antes de comenzar y al finalizar porque los tests utilizan una base de datos temporal.
 
 # Pruebas de persistencia
 
@@ -43,7 +43,7 @@ make test
 
 El comando se encarga de:
 
-1. Levantar PostgreSQL con valores de desarrollo predeterminados.
+1. Eliminar los contenedores y el volumen de una ejecución anterior, y levantar PostgreSQL con valores de desarrollo predeterminados.
 2. Generar automáticamente el código de `db/sqlc/`.
 3. Esperar a que PostgreSQL esté listo.
 4. Ejecutar los tests de Go.
@@ -62,6 +62,8 @@ El archivo `.env` es local y no debe subirse al repositorio.
 
 ## Ejecución y pruebas del CRUD
 
+Se necesita Docker iniciado, Docker Compose y make. Para ejecutar las pruebas de persistencia con `make test` tambien se necesita Go 1.26.7 o superior. sqlc y Hurl se ejecutan dentro de Docker.
+
 Para iniciar la aplicación:
 
 ```bash
@@ -76,11 +78,17 @@ Para probar la API de manera rapida:
 make test-hurl 
 ```
 
-Prepara PostgreSQL, genera sqlc, construye e inicia la API y ejecuta `requests.hurl`. Las pruebas verifican creación, listado, búsqueda por ID, actualización y eliminación de usuarios, libros, autores y editoriales. Hurl se ejecuta dentro de Docker.
+Borra los contenedores y el volumen anterior, prepara PostgreSQL, genera sqlc, construye e inicia la API y ejecuta `requests.hurl`. Las pruebas verifican creación, listado, búsqueda por ID, actualización y eliminación de usuarios, libros, autores y editoriales. Tambien se prueban datos inválidos, registros inexistentes, duplicados y registros relacionados. Hurl se ejecuta dentro de Docker.
 
-**Al terminar las pruebas se eliminan los contenedores y el volumen de PostgreSQL, incluidos sus datos.**
+**Antes y despues de las pruebas se eliminan los contenedores y el volumen de PostgreSQL, incluidos sus datos.**
 
-Para probar la API con mas detalle, teniendo hurl instalado:
+Para ejecutar las pruebas de persistencia y de la API:
+
+```bash
+make test-all
+```
+
+Para ejecutar el mismo archivo directamente, primero iniciar la aplicación con `make up` sobre una base sin datos de pruebas anteriores y tener Hurl instalado:
 
 ```bash
 hurl --test requests.hurl
@@ -97,3 +105,62 @@ Para borrar los contenedores, imágenes y volúmenes del proyecto, incluidos los
 ```bash
 docker compose --profile test down --rmi all --volumes --remove-orphans
 ```
+
+### Endpoints
+
+En este TP3 se exponen usuarios, autores, editoriales y libros. La relacion `Lee` queda en la capa de datos.
+
+Las rutas son `/usuarios`, `/autores`, `/editoriales` y `/libros`. Para cada una se pueden realizar estas operaciones:
+
+| Metodo | Ruta | Descripcion | Respuesta |
+| --- | --- | --- | --- |
+| POST | /entidades | Crear un registro | 201 y el objeto creado |
+| GET | /entidades | Listar los registros | 200 y un array JSON |
+| GET | /entidades/{id} | Obtener un registro | 200 y el objeto |
+| PUT | /entidades/{id} | Actualizar un registro | 200 y el objeto actualizado |
+| DELETE | /entidades/{id} | Eliminar un registro | 204 sin contenido |
+
+`entidades` se reemplaza por el nombre de la ruta correspondiente. POST y PUT reciben JSON con `Content-Type: application/json`. En PUT se envian todos los campos.
+
+Ejemplos de los cuerpos para crear o actualizar:
+
+Usuario:
+```json
+{"nombre":"usuario1","email":"usuario1@example.com","contrasena":"clave123"}
+```
+
+Autor:
+```json
+{"nombre":"Autor de prueba","pais":"Argentina","fecha_nacimiento":"1980-01-15","biografia":"Biografia del autor"}
+```
+
+Editorial:
+```json
+{"nombre":"Editorial de prueba","sede":"Buenos Aires"}
+```
+
+Libro (el autor y la editorial deben existir):
+```json
+{"titulo":"Libro de prueba","id_autor":1,"id_editorial":1,"fecha_lanzamiento":"2020-01-15","cantidad_paginas":250}
+```
+
+Las respuestas incluyen los campos enviados y el `id` del registro. En usuarios no se devuelve la contraseña. Si no hay registros, el listado devuelve `[]`.
+
+### Validaciones y errores
+
+- Los nombres, el titulo, el pais, la biografia y la sede no pueden estar vacíos ni contener solo espacios.
+- El email debe tener un formato válido y la contraseña debe tener al menos 3 caracteres.
+- Los IDs y la cantidad de paginas deben ser mayores a cero.
+- Las fechas se envian con formato `YYYY-MM-DD`. La fecha de lanzamiento no puede ser futura.
+- El nombre de usuario y el email no pueden repetirse.
+- No se puede guardar un libro con un autor o editorial inexistentes, ni eliminar un registro que tiene datos relacionados.
+
+Los errores se devuelven como JSON, por ejemplo `{"error":"Usuario no encontrado"}`.
+
+| Codigo | Motivo |
+| --- | --- |
+| 400 | JSON, ID o datos inválidos |
+| 404 | No existe el registro solicitado |
+| 405 | El metodo no esta permitido para esa ruta |
+| 409 | Nombre de usuario o email repetido, o conflicto con registros relacionados |
+| 500 | Error interno del servidor |

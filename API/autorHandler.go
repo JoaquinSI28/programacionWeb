@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"errors"
 	"log"
 	"net/http"
@@ -35,6 +34,11 @@ func autorHandler(repo logic.AutorRepository) http.Handler {
 }
 
 func (h *autoresHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.PathValue("id") == "" && (r.Method == http.MethodPut || r.Method == http.MethodDelete) ||
+		r.PathValue("id") != "" && r.Method == http.MethodPost {
+		metodoNoPermitido(w, r)
+		return
+	}
 	switch r.Method {
 	case http.MethodGet:
 		if r.PathValue("id") == "" {
@@ -49,8 +53,7 @@ func (h *autoresHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case http.MethodDelete:
 		h.deleteAutor(w, r)
 	default:
-		w.Header().Set("Allow", http.MethodGet+", "+http.MethodPost+", "+http.MethodPut+", "+http.MethodDelete)
-		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "Método no permitido"})
+		metodoNoPermitido(w, r)
 	}
 }
 
@@ -65,6 +68,9 @@ func (h *autoresHandler) createAutor(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		if errors.Is(err, logic.ErrValidacion) {
 			writeJSON(w, http.StatusBadRequest, errorResponse{Error: mensajeValidacion(err)})
+			return
+		}
+		if responderConflicto(w, err) {
 			return
 		}
 		log.Printf("Error al crear autor: %v", err)
@@ -132,6 +138,9 @@ func (h *autoresHandler) updateAutor(w http.ResponseWriter, r *http.Request) {
 			writeJSON(w, http.StatusBadRequest, errorResponse{Error: mensajeValidacion(err)})
 			return
 		}
+		if responderConflicto(w, err) {
+			return
+		}
 		log.Printf("Error al actualizar autor %d: %v", id, err)
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "Error interno del servidor"})
 		return
@@ -150,6 +159,9 @@ func (h *autoresHandler) deleteAutor(w http.ResponseWriter, r *http.Request) {
 		writeJSON(w, http.StatusNotFound, errorResponse{Error: "Autor no encontrado"})
 		return
 	} else if err != nil {
+		if responderConflicto(w, err) {
+			return
+		}
 		log.Printf("Error al eliminar autor %d: %v", id, err)
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "Error interno del servidor"})
 		return
@@ -159,7 +171,7 @@ func (h *autoresHandler) deleteAutor(w http.ResponseWriter, r *http.Request) {
 
 func decodeAutorRequest(r *http.Request) (autorRequest, logic.Date, error) {
 	var request autorRequest
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+	if err := decodeJSON(r, &request); err != nil {
 		return autorRequest{}, logic.Date{}, errors.New("Cuerpo JSON inválido")
 	}
 

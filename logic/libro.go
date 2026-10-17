@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -22,7 +23,7 @@ type Libro struct {
 }
 
 func validateTitulo(titulo string) error {
-	if titulo == "" {
+	if strings.TrimSpace(titulo) == "" {
 		return &ErrorValidacion{Mensaje: "El título no puede estar vacío"}
 	}
 	return nil

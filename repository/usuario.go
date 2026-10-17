@@ -42,7 +42,7 @@ func (r *UsuarioSQL) Create(ctx context.Context, nombre, email, contrasena strin
 		Contrasena:    contrasena,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errorPersistencia(err)
 	}
 
 	return &logic.Usuario{
@@ -74,7 +74,7 @@ func (r *UsuarioSQL) List(ctx context.Context) ([]*logic.Usuario, error) {
 func (r *UsuarioSQL) Delete(ctx context.Context, id int32) error {
 	err := r.queries.DeleteUsuario(ctx, id)
 	if err != nil {
-		return err
+		return errorPersistencia(err)
 	}
 	return nil
 }
@@ -87,7 +87,7 @@ func (r *UsuarioSQL) Update(ctx context.Context, id int32, nombre, email, contra
 		Contrasena:    contrasena,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errorPersistencia(err)
 	}
 
 	return &logic.Usuario{

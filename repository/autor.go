@@ -25,7 +25,7 @@ func (r *AutorSQL) Create(ctx context.Context, nombre, pais string, fechaNacimie
 		Biografia:       biografia,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errorPersistencia(err)
 	}
 
 	return &logic.Autor{
@@ -83,7 +83,7 @@ func (r *AutorSQL) Update(ctx context.Context, id int32, nombre, pais string, fe
 		Biografia:       biografia,
 	})
 	if err != nil {
-		return nil, err
+		return nil, errorPersistencia(err)
 	}
 
 	return &logic.Autor{
@@ -96,7 +96,7 @@ func (r *AutorSQL) Update(ctx context.Context, id int32, nombre, pais string, fe
 }
 
 func (r *AutorSQL) Delete(ctx context.Context, id int32) error {
-	return r.queries.DeleteAutor(ctx, id)
+	return errorPersistencia(r.queries.DeleteAutor(ctx, id))
 }
 
 var _ logic.AutorRepository = (*AutorSQL)(nil)

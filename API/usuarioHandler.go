@@ -35,6 +35,11 @@ func usuarioHandler(repo logic.UsuarioRepository) http.Handler {
 }
 
 func (h *usuariosHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if r.PathValue("id") == "" && (r.Method == http.MethodPut || r.Method == http.MethodDelete) ||
+		r.PathValue("id") != "" && r.Method == http.MethodPost {
+		metodoNoPermitido(w, r)
+		return
+	}
 	switch r.Method {
 	case http.MethodGet:
 		if r.PathValue("id") == "" {
@@ -49,14 +54,13 @@ func (h *usuariosHandler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	case http.MethodDelete:
 		h.deleteUsuario(w, r)
 	default:
-		w.Header().Set("Allow", http.MethodGet+", "+http.MethodPost+", "+http.MethodPut+", "+http.MethodDelete)
-		writeJSON(w, http.StatusMethodNotAllowed, errorResponse{Error: "Método no permitido"})
+		metodoNoPermitido(w, r)
 	}
 }
 
 func (h *usuariosHandler) createUsuario(w http.ResponseWriter, r *http.Request) {
 	var request createUsuarioRequest
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+	if err := decodeJSON(r, &request); err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "Cuerpo JSON inválido"})
 		return
 	}
@@ -65,6 +69,9 @@ func (h *usuariosHandler) createUsuario(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		if errors.Is(err, logic.ErrValidacion) {
 			writeJSON(w, http.StatusBadRequest, errorResponse{Error: mensajeValidacion(err)})
+			return
+		}
+		if responderConflicto(w, err) {
 			return
 		}
 		log.Printf("Error al crear usuario: %v", err)
@@ -112,7 +119,7 @@ func (h *usuariosHandler) updateUsuario(w http.ResponseWriter, r *http.Request) 
 	}
 
 	var request createUsuarioRequest
-	if err := json.NewDecoder(r.Body).Decode(&request); err != nil {
+	if err := decodeJSON(r, &request); err != nil {
 		writeJSON(w, http.StatusBadRequest, errorResponse{Error: "Cuerpo JSON inválido"})
 		return
 	}
@@ -125,6 +132,9 @@ func (h *usuariosHandler) updateUsuario(w http.ResponseWriter, r *http.Request) 
 	if err != nil {
 		if errors.Is(err, logic.ErrValidacion) {
 			writeJSON(w, http.StatusBadRequest, errorResponse{Error: mensajeValidacion(err)})
+			return
+		}
+		if responderConflicto(w, err) {
 			return
 		}
 		log.Printf("Error al actualizar usuario %d: %v", id, err)
@@ -173,6 +183,9 @@ func (h *usuariosHandler) deleteUsuario(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 	if err != nil {
+		if responderConflicto(w, err) {
+			return
+		}
 		log.Printf("Error al eliminar usuario %d: %v", id, err)
 		writeJSON(w, http.StatusInternalServerError, errorResponse{Error: "Error interno del servidor"})
 		return
