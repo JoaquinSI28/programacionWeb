@@ -21,16 +21,10 @@ Este comando:
 1. Limpia contenedores y volumen anteriores **del proyecto `bookfly-tp5`**.
 2. Genera Go desde SQL (`sqlc`) y desde componentes (`templ`).
 3. Compila la aplicación y levanta PostgreSQL y el servidor, esperando sus comprobaciones de salud.
-4. Muestra los registros del servidor. Abrir **http://localhost:8080/**.
+4. Muestra los registros del servidor. Abrir la dirección que aparece junto a **Bookfly disponible en**.
 5. Al salir con **Ctrl+C**, detiene los servicios y elimina el volumen de ese proyecto, incluidos sus datos, como requiere el arranque de entrega.
 
-El proyecto Compose del TP5 tiene su propio nombre y volumen. Si siguen ocupados los puertos por el TP4 u otra aplicación, se pueden elegir otros:
-
-```bash
-APP_PORT=8085 POSTGRES_PORT=5435 make run-app
-```
-
-En ese caso, abrir http://localhost:8085/ . No usar una base con datos que se desee conservar para el arranque de entrega o las pruebas.
+Docker asigna un puerto web local disponible. PostgreSQL se comunica con la aplicación por la red interna de Compose. El arranque de entrega funciona aunque otro proyecto use 8080 y 5432. Los datos del volumen del TP5 se eliminan al cerrar este modo de ejecución.
 
 ## Desarrollo conservando los datos
 
@@ -38,7 +32,7 @@ En ese caso, abrir http://localhost:8085/ . No usar una base con datos que se de
 make up
 ```
 
-Genera, compila e inicia los servicios en segundo plano. Para detenerlos conservando el volumen:
+Genera, compila e inicia los servicios en segundo plano. Para consultar la dirección web, ejecutá `docker compose -p bookfly-tp5 port api 8080` y abrí esa dirección con HTTP. Para detenerlos conservando el volumen:
 
 ```bash
 make stop
@@ -50,7 +44,7 @@ Para eliminarlos junto con los datos:
 make down
 ```
 
-Usar estos targets mantiene el nombre de proyecto del TP5. Si se personaliza `COMPOSE_PROJECT_NAME`, usar el mismo valor al arrancar y detener. Se admiten `.env` local o variables de entorno `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `APP_PORT` y `POSTGRES_PORT`. `.env` no se versiona. Los valores de desarrollo predeterminados son base `prueba`, usuario `postgres`, contraseña `postgres`.
+Usar estos targets mantiene el nombre de proyecto del TP5. Si se personaliza `COMPOSE_PROJECT_NAME`, usar el mismo valor al arrancar y detener. Se admiten `.env` local o variables de entorno `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` y `APP_PORT` (opcional para fijar el puerto web). `.env` no se versiona. Los valores de desarrollo predeterminados son base `prueba`, usuario `postgres`, contraseña `postgres`.
 
 ## Usar la aplicación
 
