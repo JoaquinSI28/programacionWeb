@@ -34,15 +34,6 @@ func validateIDEditorial(idEditorial int32) error {
 	}
 	return nil
 }
-func validateFechaLanzamiento(fechaLanzamiento Date) error {
-	if fechaLanzamiento.IsZero() {
-		return &ErrorValidacion{Mensaje: "La fecha de lanzamiento no puede estar vacía"}
-	}
-	if fechaLanzamiento.After(time.Now()) {
-		return &ErrorValidacion{Mensaje: "La fecha de lanzamiento no puede ser futura"}
-	}
-	return nil
-}
 func validateCantidadPaginas(cantidadPaginas int32) error {
 	if cantidadPaginas <= 0 {
 		return &ErrorValidacion{Mensaje: "La cantidad de páginas debe ser mayor a cero"}
@@ -66,7 +57,7 @@ func CreateLibro(ctx context.Context, repo LibroRepository, idAutor int32, titul
 	if err := validateIDEditorial(idEditorial); err != nil {
 		return nil, fmt.Errorf("error al validar ID de editorial: %w", err)
 	}
-	if err := validateFechaLanzamiento(fechaLanzamiento); err != nil {
+	if err := validarFecha(fechaLanzamiento, "La fecha de lanzamiento"); err != nil {
 		return nil, fmt.Errorf("error al validar fecha de lanzamiento: %w", err)
 	}
 	if err := validateCantidadPaginas(cantidadPaginas); err != nil {
@@ -86,7 +77,7 @@ func UpdateLibro(ctx context.Context, repo LibroRepository, id int32, idAutor in
 	if err := validateIDEditorial(idEditorial); err != nil {
 		return nil, fmt.Errorf("error al validar ID de editorial: %w", err)
 	}
-	if err := validateFechaLanzamiento(fechaLanzamiento); err != nil {
+	if err := validarFecha(fechaLanzamiento, "La fecha de lanzamiento"); err != nil {
 		return nil, fmt.Errorf("error al validar fecha de lanzamiento: %w", err)
 	}
 	if err := validateCantidadPaginas(cantidadPaginas); err != nil {

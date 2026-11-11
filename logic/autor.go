@@ -17,7 +17,7 @@ type Autor struct {
 
 var ErrAutorNoEncontrado = errors.New("autor no encontrado")
 
-func validateAutor(nombre, pais, biografia string) error {
+func validateAutor(nombre, pais, biografia string, fecha Date) error {
 	if strings.TrimSpace(nombre) == "" {
 		return &ErrorValidacion{Mensaje: "El nombre no puede estar vacío"}
 	}
@@ -27,11 +27,11 @@ func validateAutor(nombre, pais, biografia string) error {
 	if strings.TrimSpace(biografia) == "" {
 		return &ErrorValidacion{Mensaje: "La biografía no puede estar vacía"}
 	}
-	return nil
+	return validarFecha(fecha, "La fecha de nacimiento")
 }
 
 func CreateAutor(ctx context.Context, repo AutorRepository, nombre, pais string, fechaNacimiento Date, biografia string) (*Autor, error) {
-	if err := validateAutor(nombre, pais, biografia); err != nil {
+	if err := validateAutor(nombre, pais, biografia, fechaNacimiento); err != nil {
 		return nil, fmt.Errorf("error al validar autor: %w", err)
 	}
 	return repo.Create(ctx, nombre, pais, fechaNacimiento, biografia)
@@ -54,7 +54,7 @@ func GetAutores(ctx context.Context, repo AutorRepository) ([]*Autor, error) {
 }
 
 func UpdateAutor(ctx context.Context, repo AutorRepository, id int32, nombre, pais string, fechaNacimiento Date, biografia string) (*Autor, error) {
-	if err := validateAutor(nombre, pais, biografia); err != nil {
+	if err := validateAutor(nombre, pais, biografia, fechaNacimiento); err != nil {
 		return nil, fmt.Errorf("error al validar autor: %w", err)
 	}
 	if _, err := GetAutor(ctx, repo, id); err != nil {

@@ -197,6 +197,8 @@ Abrir la dirección que aparece junto a **Bookfly disponible en**. Docker elige 
 
 El formulario de usuarios admite contraseñas de 3 a 255 caracteres. En el TP5 se guarda un hash con sal aleatoria y al abrir una base anterior se migran las contraseñas existentes. El listado de usuarios consulta únicamente el ID, el nombre y el correo.
 
+La fecha de nacimiento y la de lanzamiento admiten hasta el día de hoy en Argentina. Para evitar duplicados se compara el nombre, país y fecha de nacimiento del autor; el nombre y sede de la editorial; y el título, autor, editorial y fecha de lanzamiento de cada edición. El nombre de usuario y el correo son únicos por separado. Las comparaciones ignoran mayúsculas y espacios repetidos. El formulario devuelve 400 para datos inválidos y 409 si el registro ya existe.
+
 Desde esta rama, `make test` ejecuta las pruebas de Go con PostgreSQL y `make test-hurl` prueba los formularios y las respuestas HTML. Para ejecutar ambos:
 
 ```bash

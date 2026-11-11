@@ -32,7 +32,7 @@ El Dockerfile genera el código de sqlc y templ dentro de la imagen antes de com
 
 ## Decisiones conservadas
 
-No se agrega autenticación, gestión de lecturas, edición de entidades ni reglas de unicidad nuevas. La unicidad de editoriales quedó explícitamente diferida por el usuario. Las altas y actualizaciones guardan PBKDF2-SHA256 con 600.000 iteraciones y sal aleatoria mediante la biblioteca estándar de Go. La aplicación migra la columna anterior al iniciar. La clase de autenticación fundamenta proteger las contraseñas con un hash lento; PBKDF2 es la elección del proyecto.
+La biblioteca conserva sus cuatro formularios. Los índices únicos de PostgreSQL protegen las altas concurrentes usando las claves descritas en el README. El país y la fecha distinguen autores homónimos; la sede distingue editoriales y la fecha distingue ediciones. La biografía y la cantidad de páginas son atributos descriptivos. Las altas y actualizaciones guardan PBKDF2-SHA256 con 600.000 iteraciones y sal aleatoria mediante la biblioteca estándar de Go. La aplicación migra la columna anterior al iniciar. La clase de autenticación fundamenta proteger las contraseñas con un hash lento; PBKDF2 es la elección del proyecto.
 
 ## Validación ejecutada
 
@@ -61,3 +61,5 @@ La ejecución final de `make test-all` pasó las pruebas de Go y las 18 peticion
 ## Verificación desde la rama publicada
 
 Se clonó la rama `tp5` en una carpeta nueva y se ejecutó `make run-app` con los puertos 8080 y 5432 ocupados por otros contenedores. Docker asignó el puerto web y la dirección anunciada por el script respondió HTTP 200. Al interrumpir la ejecución con Ctrl+C quedaron cero contenedores y cero volúmenes del proyecto de prueba.
+
+Al abrir un volumen anterior, las reglas se instalan en una transacción. Si ya existen duplicados, PostgreSQL indica el índice en conflicto y se revierte la migración. Para conservar los datos, revisar y resolver esas coincidencias antes de volver a levantar la aplicación con `make up`. Las restricciones de fecha se aplican a nuevas escrituras.

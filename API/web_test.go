@@ -13,7 +13,9 @@ import (
 	"testing"
 	"time"
 
+	"bookfly.com/db/migrations"
 	dbsqlc "bookfly.com/db/sqlc"
+	"bookfly.com/logic"
 )
 
 // Se ejecuta con make test sobre un PostgreSQL de prueba preparado por Compose.
@@ -27,6 +29,9 @@ func TestHTMLFormsAndPRG(t *testing.T) {
 	}
 	defer conn.Close()
 	if err := conn.Ping(); err != nil {
+		t.Fatal(err)
+	}
+	if err := migrations.AplicarReglas(context.Background(), conn); err != nil {
 		t.Fatal(err)
 	}
 	queries := dbsqlc.New(conn)
@@ -194,6 +199,42 @@ func TestHTMLFormsAndPRG(t *testing.T) {
 	}
 	post(fmt.Sprintf("/autores/%d/eliminar", authorID), nil, http.StatusConflict)
 
+	t.Run("duplicados y fechas del catálogo", func(t *testing.T) {
+		autor := url.Values{"nombre": {strings.ToUpper(authorName)}, "pais": {"  argentina  "}, "fecha_nacimiento": {"1980-01-15"}, "biografia": {"Otra biografía"}}
+		if body := post("/autores", autor, http.StatusConflict); !strings.Contains(body, "Ya existe un autor") {
+			t.Fatal("mensaje de autor duplicado incorrecto")
+		}
+		hoy, err := time.Parse(time.DateOnly, logic.Hoy())
+		if err != nil {
+			t.Fatal(err)
+		}
+		for _, fecha := range []string{"", "0000-01-01", "2025-02-29", hoy.AddDate(0, 0, 1).Format(time.DateOnly)} {
+			autor.Set("fecha_nacimiento", fecha)
+			post("/autores", autor, http.StatusBadRequest)
+		}
+		defer conn.Exec("DELETE FROM autor WHERE nombre = $1 AND fecha_nacimiento = $2", autor.Get("nombre"), hoy)
+		autor.Set("fecha_nacimiento", hoy.Format(time.DateOnly))
+		post("/autores", autor, http.StatusSeeOther)
+		editorial := url.Values{"nombre": {strings.ReplaceAll(strings.ToUpper(name), " ", "  ")}, "sede": {"tandil"}}
+		post("/editoriales", editorial, http.StatusConflict)
+		defer conn.Exec("DELETE FROM editorial WHERE nombre = $1 AND sede = $2", editorial.Get("nombre"), "Otra sede")
+		editorial.Set("sede", "Otra sede")
+		post("/editoriales", editorial, http.StatusSeeOther)
+		bookForm.Set("cantidad_paginas", "251")
+		post("/libros", bookForm, http.StatusConflict)
+		bookForm.Set("fecha_lanzamiento", "2020-02-29")
+		post("/libros", bookForm, http.StatusSeeOther)
+		bookForm.Set("fecha_lanzamiento", "2020-01-15")
+		post("/usuarios", url.Values{"nombre": {strings.ToUpper(username)}, "email": {"otro" + username + "@example.com"}, "contrasena": {"clave"}}, http.StatusConflict)
+		post("/usuarios", url.Values{"nombre": {"otro" + username}, "email": {strings.ToUpper(userForm.Get("email"))}, "contrasena": {"clave"}}, http.StatusConflict)
+		post("/editoriales", url.Values{"nombre": {strings.Repeat("ñ", 256)}, "sede": {"Tandil"}}, http.StatusBadRequest)
+		if _, err := conn.Exec("UPDATE autor SET fecha_nacimiento = DATE '9999-01-01' WHERE id_autor = $1", authorID); err == nil {
+			t.Fatal("la base aceptó un nacimiento futuro")
+		}
+		if _, err := conn.Exec("DELETE FROM libro WHERE titulo = $1 AND fecha_lanzamiento = DATE '2020-02-29'", title); err != nil {
+			t.Fatal(err)
+		}
+	})
 	t.Run("validaciones del servidor", func(t *testing.T) {
 		post("/editoriales", url.Values{"nombre": {"   "}, "sede": {"Tandil"}}, http.StatusBadRequest)
 		bookForm.Set("cantidad_paginas", "2147483648")

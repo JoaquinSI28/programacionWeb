@@ -58,7 +58,7 @@ func newWebHandler(queries *dbsqlc.Queries) http.Handler {
 }
 
 func (app *webApp) pageData(ctx context.Context) (views.PageData, error) {
-	data := views.PageData{Today: time.Now().Format("2006-01-02")}
+	data := views.PageData{Today: logic.Hoy()}
 	var err error
 	if data.Libros, err = logic.GetLibros(ctx, app.libros); err != nil {
 		return data, err
@@ -138,13 +138,22 @@ func (app *webApp) formError(w http.ResponseWriter, r *http.Request, entity stri
 	renderHTML(w, r, status, views.IndexPage(data))
 }
 
-func classifyError(err error) (int, string) {
+func classifyError(err error, entity string) (int, string) {
 	var validation *logic.ErrorValidacion
 	switch {
 	case errors.As(err, &validation):
 		return http.StatusBadRequest, validation.Mensaje
 	case errors.Is(err, logic.ErrDuplicado):
-		return http.StatusConflict, "El nombre de usuario o el correo ya está registrado."
+		switch entity {
+		case "autores":
+			return http.StatusConflict, "Ya existe un autor con ese nombre, país y fecha de nacimiento."
+		case "editoriales":
+			return http.StatusConflict, "Ya existe una editorial con ese nombre y sede."
+		case "libros":
+			return http.StatusConflict, "Ya existe esa edición del libro para el autor, la editorial y la fecha indicados."
+		default:
+			return http.StatusConflict, "El nombre de usuario o el correo ya está registrado."
+		}
 	case errors.Is(err, logic.ErrReferencia):
 		return http.StatusConflict, "El registro referenciado no existe o tiene datos relacionados."
 	case errors.Is(err, logic.ErrLibroNoEncontrado), errors.Is(err, logic.ErrAutorNoEncontrado),
@@ -199,7 +208,7 @@ func (app *webApp) create(w http.ResponseWriter, r *http.Request, entity string)
 		err = app.createLibro(r.Context(), values)
 	}
 	if err != nil {
-		status, message := classifyError(err)
+		status, message := classifyError(err, entity)
 		app.formError(w, r, entity, values, status, message)
 		return
 	}
@@ -244,7 +253,7 @@ func (app *webApp) delete(w http.ResponseWriter, r *http.Request, entity string)
 		}
 	}
 	if err != nil {
-		status, message := classifyError(err)
+		status, message := classifyError(err, entity)
 		app.formError(w, r, entity, nil, status, message)
 		return
 	}

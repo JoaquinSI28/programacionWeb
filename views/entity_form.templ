@@ -51,7 +51,7 @@ templ AutorForm(data PageData) {
 		<label for="autor-pais">País</label>
 		<input id="autor-pais" name="pais" required maxlength="100" value={ data.Value("autores", "pais") }/>
 		<label for="autor-fecha">Fecha de nacimiento</label>
-		<input id="autor-fecha" name="fecha_nacimiento" type="date" required value={ data.Value("autores", "fecha_nacimiento") }/>
+		<input id="autor-fecha" name="fecha_nacimiento" type="date" required max={ data.Today } value={ data.Value("autores", "fecha_nacimiento") }/>
 		<label for="autor-biografia">Biografía</label>
 		<textarea id="autor-biografia" name="biografia" rows="3" required>{ data.Value("autores", "biografia") }</textarea>
 		<button type="submit">Agregar autor</button>
