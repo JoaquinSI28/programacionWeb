@@ -110,6 +110,90 @@ fs.mkdirSync(output, {recursive:true});
    await expect(page.locator('#editoriales-list')).toContainText('Guardada con fallo de lectura');
    await remove('editoriales','Guardada con fallo de lectura');
    console.log('PASS: alta confirmada no se confunde con fallo posterior de lectura');
+   // Regresión: una lista pendiente no debe impedir usar las otras secciones.
+   const slowPage = await browser.newPage();
+   slowPage.on('pageerror', error => errors.push(error.message));
+   await slowPage.clock.install();
+   await slowPage.route('**/usuarios', () => {});
+   await slowPage.goto(baseURL);
+   for (const entity of ['libros', 'autores', 'editoriales']) {
+     await expect(slowPage.locator(`#${entity}-count`)).toHaveText('0 registros');
+     await expect(slowPage.locator(`#${entity}-form button`)).toBeEnabled();
+   }
+   await expect(slowPage.locator('#usuarios-form button')).toBeDisabled();
+   await slowPage.clock.fastForward(15001);
+   await expect(slowPage.locator('#usuarios-message')).toContainText('tardó demasiado');
+   await expect(slowPage.locator('#usuarios-count')).toHaveText('Sin actualizar');
+   await expect(slowPage.locator('#usuarios-form button')).toBeEnabled();
+   await slowPage.close();
+   console.log('PASS: listas independientes y recuperación de consulta demorada');
+
+   // Regresión: no se puede escribir un borrador nuevo mientras se confirma el anterior.
+   let responseReady = false;
+   let releaseResponse;
+   const responseGate = new Promise(resolve => { releaseResponse = resolve; });
+   await page.route('**/editoriales', async route => {
+     if (route.request().method() !== 'POST') return route.continue();
+     const response = await route.fetch();
+     responseReady = true;
+     await responseGate;
+     await route.fulfill({ response });
+   });
+   await page.locator('#editorial-nombre').fill('Editorial con respuesta demorada');
+   await page.locator('#editorial-sede').fill('Tandil');
+   await page.locator('#editoriales-form button').click();
+   await expect.poll(() => responseReady).toBe(true);
+   await expect(page.locator('#editorial-nombre')).toBeDisabled();
+   await expect(page.locator('#editorial-sede')).toBeDisabled();
+   await expect(page.locator('#autor-nombre')).toBeEnabled();
+   releaseResponse();
+   await expect(page.locator('#editoriales-message')).toContainText('creado.');
+   await expect(page.locator('#editorial-nombre')).toBeEnabled();
+   await expect(page.locator('#editorial-nombre')).toHaveValue('');
+   await page.unroute('**/editoriales');
+   await remove('editoriales', 'Editorial con respuesta demorada');
+   console.log('PASS: campos bloqueados durante el envío y liberados al confirmar');
+
+   // Un POST sin confirmación puede haberse guardado: conservar los datos y advertirlo.
+   const timeoutPage = await browser.newPage();
+   timeoutPage.on('pageerror', error => errors.push(error.message));
+   await timeoutPage.clock.install();
+   await timeoutPage.goto(baseURL);
+   await expect(timeoutPage.locator('#editoriales-form button')).toBeEnabled();
+   let postPending = false;
+   await timeoutPage.route('**/editoriales', route => {
+     if (route.request().method() === 'POST') postPending = true;
+     else return route.continue();
+   });
+   await timeoutPage.locator('#editorial-nombre').fill('Borrador conservado');
+   await timeoutPage.locator('#editorial-sede').fill('Azul');
+   await timeoutPage.locator('#editoriales-form button').click();
+   await expect.poll(() => postPending).toBe(true);
+   await expect(timeoutPage.locator('#editorial-nombre')).toBeDisabled();
+   await timeoutPage.clock.fastForward(15001);
+   await expect(timeoutPage.locator('#editoriales-message')).toContainText('No se pudo confirmar');
+   await expect(timeoutPage.locator('#editorial-nombre')).toBeEnabled();
+   await expect(timeoutPage.locator('#editoriales-form button')).toBeEnabled();
+   await expect(timeoutPage.locator('#editorial-nombre')).toHaveValue('Borrador conservado');
+   await expect(timeoutPage.locator('#editorial-sede')).toHaveValue('Azul');
+   await timeoutPage.close();
+   console.log('PASS: plazo del POST, borrador conservado y controles recuperados');
+   // Una consulta anterior que responde tarde no debe pisar una carga más reciente.
+   let olderUserRequest;
+   await page.route('**/usuarios', route => {
+     if (!olderUserRequest) olderUserRequest = route;
+     else return route.continue();
+   });
+   const olderLoad = page.evaluate(() => loadLists());
+   await expect.poll(() => Boolean(olderUserRequest)).toBe(true);
+   await page.evaluate(() => loadLists());
+   await expect(page.locator('#usuarios-count')).toHaveText('0 registros');
+   await olderUserRequest.fulfill({ status: 500, contentType: 'application/json', body: JSON.stringify({error: 'Respuesta anterior demorada'}) });
+   await olderLoad;
+   await expect(page.locator('#usuarios-count')).toHaveText('0 registros');
+   await expect(page.locator('#usuarios-message')).toHaveText('');
+   await page.unroute('**/usuarios');
+   console.log('PASS: respuestas anteriores no sobrescriben la carga más reciente');
    if(errors.length)throw new Error(errors.join('\n'));
    fs.writeFileSync(`${output}/resultado.json`,JSON.stringify({status:'passed',browser:'Google Chrome',mutations:mutations.length,consoleErrors:errors},null,2));
    console.log('PASS: sin errores JavaScript');

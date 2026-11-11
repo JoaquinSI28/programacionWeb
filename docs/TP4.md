@@ -4,7 +4,7 @@ Fecha: 11 de noviembre de 2026.
 
 ## Base y alcance
 
-Rama `tp4`, creada desde `tp3` en `4e70149de054ec058f2c6d617e9511cf06da3826`. El siguiente TP deberá crear `tp5` desde el commit final de `tp4`, sin modificar la rama entregada. No se publicó ninguna rama durante esta implementación.
+Rama `tp4`, creada desde `tp3` en `4e70149de054ec058f2c6d617e9511cf06da3826`. El siguiente TP deberá crear `tp5` desde el commit final de `tp4`, sin modificar la rama entregada. La rama se publicó en GitHub con autorización del usuario en el commit 9940c80.
 
 Fuente funcional: guía oficial `tp4.pdf`, Trabajo de Cursada, páginas 2–3. Material de apoyo: `08-view.pdf`, páginas físicas 15 (origen/CORS), 19–27 (DOM y eventos), 59 (formularios), 71–78 (Flexbox y Grid).
 
@@ -58,4 +58,28 @@ La prueba de navegador y la instancia aislada son de desarrollo; la aplicación 
 
 ## Continuidad
 
-TP4 implementado y validado. TP5 pendiente: deberá transformar esta interfaz en componentes templ y formularios clásicos, conservando el dominio y PostgreSQL. Publicación en GitHub pendiente de indicación del usuario.
+TP4 implementado y validado. TP5 pendiente: deberá transformar esta interfaz en componentes templ y formularios clásicos, conservando el dominio y PostgreSQL. La versión inicial está publicada en GitHub. Las correcciones de auditoría están pendientes de aprobación del mensaje y de commit.
+
+
+## Correcciones de la auditoría
+
+- Cada consulta actualiza su sección al llegar, sin esperar las demás; una respuesta tardía de una carga anterior se descarta mediante un contador de carga; los controles se habilitan por sección. Las referencias del formulario de libros esperan a autores/editoriales.
+- Un temporizador de 15 segundos cancela peticiones que no terminan. Abarca tanto la recepción de cabeceras como la lectura del cuerpo. El plazo es una decisión del proyecto, no un número fijado por la cátedra.
+- Los campos del formulario enviado se bloquean hasta terminar para evitar perder ediciones posteriores. Se liberan en finally, tanto al confirmar como al fallar. Los errores conservan los valores.
+- Si un POST supera el plazo, se informa que el resultado no pudo confirmarse y que debe consultarse antes de repetir; cancelar la espera no demuestra que la base no haya guardado el cambio.
+- Las editoriales duplicadas continúan permitidas, según lo acordado.
+
+### Relación con el material
+
+08-view.pdf, páginas físicas 4–7: responsabilidades y estado de la interfaz; 29–43: asincronía, Web APIs, temporizadores y promesas; 19–27: DOM, propiedades y eventos. tp4.pdf, cursada páginas 2–3: fetch, formularios y actualización de listas. Se mantienen JavaScript del navegador y la API Go del TP3, sin bibliotecas nuevas ni HTMX/templ.
+
+AbortController es un complemento nativo para cancelar fetch; no se encontró un ejemplo literal de esta API en las diapositivas. Se verificó su comportamiento en la referencia MDN enlazada como recurso en la guía: https://developer.mozilla.org/en-US/docs/Web/API/AbortController/abort .
+
+### Pruebas de regresión agregadas
+
+- Retener la respuesta de usuarios: las otras tres listas deben mostrarse y sus formularios poder usarse. Al superar el plazo, usuarios muestra error y recupera controles.
+- Retener la respuesta de un alta confirmada: los campos permanecen bloqueados; al recibirla se limpian y habilitan.
+- Hacer dos cargas superpuestas y liberar la respuesta antigua al final: no debe reemplazar datos ni errores de la carga actual.
+- Retener un POST sin confirmación: al superar el plazo se conservan los valores, se liberan controles y se advierte que no debe repetirse sin comprobar el resultado.
+
+Validación de las correcciones: compilación y arranque en Docker correctos; suite completa de navegador con Chrome y PostgreSQL reales aprobada, incluidos los cuatro casos de regresión; node --check y git diff --check correctos. El código Go y el esquema SQL no cambiaron.

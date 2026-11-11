@@ -9,6 +9,9 @@ const entities = {
 };
 const records = { libros: [], autores: [], editoriales: [], usuarios: [] };
 let busy = false;
+const loadState = { libros: "loading", autores: "loading", editoriales: "loading", usuarios: "loading" };
+let loadVersion = 0;
+const requestTimeout = 15000; // Decisión del proyecto: no dejar una petición esperando sin límite.
 
 function showMessage(entity, text, error = false) {
   const message = document.getElementById(`${entity}-message`);
@@ -17,26 +20,48 @@ function showMessage(entity, text, error = false) {
 }
 
 async function request(path, options = {}) {
-  let response;
+  const controller = new AbortController();
+  const timer = setTimeout(() => controller.abort(), requestTimeout);
   try {
-    response = await fetch(path, options);
-  } catch {
-    throw new Error("No se pudo conectar con el servidor. Revisá la conexión e intentá nuevamente.");
+    let response;
+    try {
+      response = await fetch(path, { ...options, signal: controller.signal });
+    } catch {
+      throw new Error("No se pudo conectar con el servidor. Revisá la conexión e intentá nuevamente.");
+    }
+    if (response.status === 204) return null;
+    let data;
+    try {
+      data = await response.json();
+    } catch {
+      throw new Error("El servidor devolvió una respuesta inesperada. Intentá nuevamente.");
+    }
+    if (!response.ok) throw new Error(data.error || `No se pudo completar la operación (${response.status}).`);
+    return data;
+  } catch (error) {
+    if (controller.signal.aborted) {
+      const message = options.method && options.method !== "GET"
+        ? "El servidor tardó demasiado. No se pudo confirmar el cambio; recargá la página para comprobar si se guardó antes de repetirlo."
+        : "El servidor tardó demasiado en responder.";
+      throw new Error(message);
+    }
+    throw error;
+  } finally {
+    clearTimeout(timer);
   }
-  if (response.status === 204) return null;
-  let data;
-  try {
-    data = await response.json();
-  } catch {
-    throw new Error("El servidor devolvió una respuesta inesperada. Intentá nuevamente.");
-  }
-  if (!response.ok) throw new Error(data.error || `No se pudo completar la operación (${response.status}).`);
-  return data;
 }
 
 function setBusy(value) {
   busy = value;
-  document.querySelectorAll('button[type="submit"], .delete-button').forEach(button => { button.disabled = value; });
+  for (const entity of Object.keys(entities)) {
+    const loading = loadState[entity] === "loading";
+    const referencesLoading = entity === "libros" &&
+      (loadState.autores === "loading" || loadState.editoriales === "loading");
+    document.querySelector(`#${entity}-form button`).disabled = busy || loading || referencesLoading;
+    document.querySelectorAll(`#${entity}-list .delete-button`).forEach(button => {
+      button.disabled = busy || loading;
+    });
+  }
 }
 
 function updateSelect(entity, selectID) {
@@ -97,47 +122,66 @@ function renderList(entity) {
 }
 
 async function loadLists() {
-  const results = await Promise.allSettled(Object.keys(entities).map(async entity => {
-    const data = await request(`/${entity}`);
-    if (!Array.isArray(data)) throw new Error("El servidor no devolvió una lista válida.");
-    records[entity] = data;
-  }));
+  const version = ++loadVersion;
   const failed = [];
-  Object.keys(entities).forEach((entity, index) => {
-    if (results[index].status === "rejected") {
-      showMessage(entity, `No se pudo actualizar la lista. ${results[index].reason.message} Recargá la página para reintentar.`, true);
-      // No mostrar una lista vacía como si fuese una consulta exitosa.
+  for (const entity of Object.keys(entities)) loadState[entity] = "loading";
+  setBusy(busy);
+  await Promise.all(Object.keys(entities).map(async entity => {
+    try {
+      const data = await request(`/${entity}`);
+      // Una respuesta de una carga anterior no debe pisar datos más recientes.
+      if (version !== loadVersion) return;
+      if (!Array.isArray(data)) throw new Error("El servidor no devolvió una lista válida.");
+      records[entity] = data;
+      loadState[entity] = "ready";
+      showMessage(entity, "");
+      renderList(entity);
+      if (entity === "autores" || entity === "editoriales") {
+        updateSelect(entity, entity === "autores" ? "libro-autor" : "libro-editorial");
+        // Si los libros llegaron antes que sus referencias, actualizar los nombres.
+        if (loadState.libros === "ready") renderList("libros");
+      }
+    } catch (error) {
+      if (version !== loadVersion) return;
+      loadState[entity] = "error";
+      showMessage(entity, `No se pudo actualizar la lista. ${error.message} Recargá la página para reintentar.`, true);
       document.getElementById(`${entity}-count`).textContent = "Sin actualizar";
       const list = document.getElementById(`${entity}-list`);
       if (!records[entity].length) list.replaceChildren();
+      if (entity === "autores" || entity === "editoriales") {
+        updateSelect(entity, entity === "autores" ? "libro-autor" : "libro-editorial");
+      }
       failed.push(entity);
-    } else {
-      showMessage(entity, "");
-      renderList(entity);
+    } finally {
+      // Cada sección puede usarse apenas termina su propia consulta.
+      if (version === loadVersion) setBusy(busy);
     }
-  });
-  updateSelect("autores", "libro-autor");
-  updateSelect("editoriales", "libro-editorial");
+  }));
   return failed;
 }
 
 async function mutate(entity, options, path, form = null) {
   if (busy) return;
+  const fields = form ? Array.from(form.querySelectorAll("input, select, textarea")) : [];
   setBusy(true);
+  fields.forEach(field => { field.disabled = true; });
   showMessage(entity, "Guardando cambios…");
   try {
-    await request(path, options);
-  } catch (error) {
-    showMessage(entity, error.message, true);
+    try {
+      await request(path, options);
+    } catch (error) {
+      showMessage(entity, error.message, true);
+      return;
+    }
+    // Los campos permanecen bloqueados hasta terminar: no se borra un borrador nuevo.
+    if (form) form.reset();
+    const failed = await loadLists();
+    const action = form ? "creado" : "eliminado";
+    showMessage(entity, `${entities[entity].singular} ${action}.${failed.length ? " El cambio se guardó, pero no se pudieron actualizar todas las listas. Recargá la página." : ""}`, failed.length > 0);
+  } finally {
+    fields.forEach(field => { field.disabled = false; });
     setBusy(false);
-    return;
   }
-  // La escritura ya se confirmó: un error de recarga no debe invitar a repetir el POST.
-  if (form) form.reset();
-  const failed = await loadLists();
-  const action = form ? "creado" : "eliminado";
-  showMessage(entity, `${entities[entity].singular} ${action}.${failed.length ? " El cambio se guardó, pero no se pudieron actualizar todas las listas. Recargá la página." : ""}`, failed.length > 0);
-  setBusy(false);
 }
 
 for (const [entity, config] of Object.entries(entities)) {
@@ -167,5 +211,4 @@ for (const [entity, config] of Object.entries(entities)) {
 const today = new Date();
 const localDate = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 document.getElementById("libro-fecha").max = localDate;
-setBusy(true);
-void loadLists().finally(() => setBusy(false));
+void loadLists();

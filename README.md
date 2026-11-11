@@ -38,7 +38,7 @@ Fuente: `tp4.pdf`, sección «Trabajo de Cursada: Construyendo la Interfaz de Us
 | 3. Borrado con delegación | Listener de cada lista: obtiene el ID del botón, realiza DELETE y consulta nuevamente. |
 | 4. CSS y distribución | `API/static/styles.css`: Grid para formulario/lista, Flexbox para cabecera y tarjetas, una columna en pantallas pequeñas. |
 
-Las selecciones de autor/editorial, estados vacíos, mensajes de error y bloqueo de botones durante peticiones permiten usar el dominio existente. Los datos se insertan con `textContent`, sin interpretar HTML del usuario. El frontend no agrega actualización, autenticación ni gestión de lecturas: consume las operaciones necesarias de las cuatro entidades que ya exponía el TP3.
+Las selecciones de autor/editorial, estados vacíos, mensajes de error y bloqueo de botones durante peticiones permiten usar el dominio existente. Los datos se insertan con `textContent`, sin interpretar HTML del usuario. Cada lista se muestra cuando termina su consulta, y las peticiones tienen un plazo de 15 segundos. Los campos del formulario enviado permanecen bloqueados hasta confirmar o fallar; en caso de error, conservan sus valores. El frontend no agrega actualización, autenticación ni gestión de lecturas: consume las operaciones necesarias de las cuatro entidades que ya exponía el TP3.
 
 ## Verificación manual
 
@@ -52,7 +52,7 @@ Las selecciones de autor/editorial, estados vacíos, mensajes de error y bloqueo
 
 ## Prueba de navegador opcional
 
-`tests/tp4-browser.cjs` comprueba los flujos anteriores con Chrome, además de campos con espacios, texto que parece HTML, errores de red y un fallo de lectura posterior a un alta confirmada. Requiere una **instancia de prueba con las cuatro listas vacías**; crea y elimina registros. No ejecutar sobre una base con información personal. La aplicación no necesita Node ni Playwright para funcionar.
+`tests/tp4-browser.cjs` comprueba los flujos anteriores con Chrome, además de campos con espacios, texto que parece HTML, errores de red y un fallo de lectura posterior a un alta confirmada, consultas demoradas, recuperación por tiempo de espera y bloqueo temporal de los campos durante el envío. Requiere una **instancia de prueba con las cuatro listas vacías**; crea y elimina registros. No ejecutar sobre una base con información personal. La aplicación no necesita Node ni Playwright para funcionar.
 
 Con Node/npm y Google Chrome instalados, se puede preparar Playwright fuera del repositorio:
 
