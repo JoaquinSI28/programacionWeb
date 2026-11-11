@@ -184,7 +184,7 @@ cd programacionWeb
 make run-app
 ```
 
-Si ya se clonó la rama, alcanza con ejecutar `make run-app` desde la raíz. El comando limpia los contenedores y el volumen del proyecto `bookfly-tp5`, genera el código de sqlc y templ, compila la aplicación y espera a que PostgreSQL y el servidor estén listos. Go y los generadores se ejecutan dentro de Docker.
+Si ya se clonó la rama, alcanza con ejecutar `make run-app` desde la raíz. El comando limpia los contenedores y el volumen del proyecto `bookfly-tp5`, genera el código de sqlc y templ, compila la aplicación y espera a que PostgreSQL y el servidor estén listos. Go y los generadores se ejecutan dentro de la imagen de Docker. El arranque y las pruebas pueden leer el clon sin escribir archivos generados en él.
 
 Abrir la dirección que aparece junto a **Bookfly disponible en**. Docker elige un puerto local disponible y la base de datos usa la red interna del proyecto. Al salir con **Ctrl+C** se eliminan los contenedores y el volumen del TP5, incluidos los datos de esa ejecución. Para trabajar conservando los datos entre sesiones, usar `make up` y `make stop`. En ese modo, `docker compose -p bookfly-tp5 port api 8080` muestra la dirección que se abre con HTTP.
 

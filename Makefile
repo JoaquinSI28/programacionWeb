@@ -5,12 +5,12 @@ export COMPOSE_PROJECT_NAME POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD APP_PORT
 .PHONY: generate up up-api up-db run-app test test-hurl test-all down stop
 
 generate:
-	docker compose run --rm sqlc
-	docker compose run --rm templ
+	docker compose run --rm --user "$$(id -u):$$(id -g)" sqlc
+	docker compose run --rm --user "$$(id -u):$$(id -g)" templ
 
 up: up-api
 
-up-api: generate
+up-api:
 	docker compose up -d --build --wait --wait-timeout 120 api
 
 up-db:
@@ -25,8 +25,7 @@ test:
 	trap '$(MAKE) down' EXIT; \
 	$(MAKE) down; \
 	$(MAKE) up-db; \
-	$(MAKE) generate; \
-	docker compose run --rm --no-deps go-tests
+	docker compose run --build --rm --no-deps go-tests
 
 test-hurl:
 	@set -e; \

@@ -22,12 +22,11 @@ services:
     command: ["--test", "/tests/requests.hurl"]
 
   go-tests:
-    image: golang:1.26-alpine
+    build:
+      context: .
+      target: builder
     profiles: [test]
     network_mode: service:database
-    volumes:
-      - .:/src:ro
-    working_dir: /src
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-prueba}
       POSTGRES_USER: ${POSTGRES_USER:-postgres}

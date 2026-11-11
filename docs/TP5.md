@@ -28,7 +28,7 @@ Se usa el TP4 real terminado, no la instantánea tp3 de la vault. El ejemplo did
 
 Go 1.26.7 en el módulo y contenedor 1.26, PostgreSQL 15, lib/pq 1.12.3. Se agrega templ v0.3.1100, observado en el registro oficial de módulos; CLI e importación fijados a la misma versión. sqlc se fija a 1.31.1, versión instalada comprobada, evitando latest en ese generador.
 
-make generate ejecuta sqlc y templ en contenedores. El Dockerfile también genera desde fuentes antes de compilar, y excluye los paquetes generados del contexto de entrada. make run-app prepara, arranca, espera salud y limpia al salir con Ctrl+C. make up y make stop permiten trabajar conservando datos. El nombre Compose predeterminado bookfly-tp5 separa el volumen del TP4; Docker asigna el puerto web y el script imprime la dirección efectiva. PostgreSQL usa la red interna de Compose.
+El Dockerfile genera el código de sqlc y templ dentro de la imagen antes de compilar. Tanto el arranque como las pruebas usan esa compilación. Para trabajar sobre las fuentes generadas en el clon, el comando opcional `make generate` ejecuta los generadores con el usuario y grupo locales. make run-app prepara, arranca, espera salud y limpia al salir con Ctrl+C. make up y make stop permiten trabajar conservando datos. El nombre Compose predeterminado bookfly-tp5 separa el volumen del TP4; Docker asigna el puerto web y el script imprime la dirección efectiva. PostgreSQL usa la red interna de Compose.
 
 ## Decisiones conservadas
 
