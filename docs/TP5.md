@@ -57,3 +57,7 @@ La prueba de navegador es evidencia de desarrollo conservada fuera de la entrega
 La revisión final incorporó el límite de 255 caracteres, la proyección pública de usuarios, la migración de contraseñas y el control de salud independiente. La rama tp5 conserva el flujo SSR de la cursada.
 
 La ejecución final de `make test-all` pasó las pruebas de Go y las 18 peticiones Hurl. Las pruebas de regresión cubren contraseñas de 255 y 256 caracteres, respuesta vacía 204 de salud y migración repetible de dos usuarios con la misma clave y sales distintas. También pasó `go vet ./...`.
+
+## Verificación desde la rama publicada
+
+Se clonó la rama `tp5` en una carpeta nueva y se ejecutó `make run-app` con los puertos 8080 y 5432 ocupados por otros contenedores. Docker asignó el puerto web y la dirección anunciada por el script respondió HTTP 200. Al interrumpir la ejecución con Ctrl+C quedaron cero contenedores y cero volúmenes del proyecto de prueba.
