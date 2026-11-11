@@ -1,3 +1,72 @@
+# Bookfly — TP4: interfaz de usuario
+
+Esta rama `tp4` continúa la entrega `tp3` (commit `4e70149`). Incorpora una interfaz HTML/CSS/JavaScript que consume la API REST existente. El servidor Go, sus validaciones y PostgreSQL se mantienen. El TP5 deberá partir del TP4 terminado, en una nueva rama `tp5`.
+
+## Iniciar el TP4
+
+Con Docker Desktop iniciado, Docker Compose y make disponibles:
+
+```bash
+make up
+```
+
+Abrir **http://localhost:8080/** desde el navegador. Este comando genera sqlc antes de compilar e iniciar la API y PostgreSQL. No abrir `index.html` con `file://`: la página y la API se sirven desde el mismo origen, sin configuración adicional de CORS.
+
+Para detener los servicios conservando los datos:
+
+```bash
+docker compose down
+```
+
+## Usar la interfaz
+
+1. Agregar un autor y una editorial en sus respectivas secciones.
+2. Agregar un libro seleccionando esas referencias y completando título, fecha de lanzamiento y páginas.
+3. Agregar usuarios desde su formulario si se desea probar esa entidad.
+4. Usar **Eliminar** en cualquier listado. Si un autor o editorial tiene libros asociados, la API rechaza el borrado y la interfaz muestra el error. Primero eliminar los libros asociados.
+
+Al cargar se consultan las cuatro listas con GET. Cada formulario intercepta `submit`, envía JSON con POST y vuelve a consultar las listas. Los botones dinámicos de borrado se manejan mediante un listener en cada lista (delegación de eventos), envían DELETE y refrescan los datos sin recargar el documento. Las contraseñas no se muestran en los listados.
+
+## Correspondencia con el Trabajo de Cursada del TP4
+
+Fuente: `tp4.pdf`, sección «Trabajo de Cursada: Construyendo la Interfaz de Usuario», páginas 2–3. Los ejercicios didácticos previos no son entregas adicionales.
+
+| Punto | Implementación |
+| --- | --- |
+| 1. Título, formulario y contenedor con ID | `API/static/index.html`: título principal y formularios/listas para libros, autores, editoriales y usuarios. |
+| 2. JavaScript y comunicación con la API | `API/static/app.js`: fetch inicial, creación de nodos con datos, POST JSON y recarga de listas después del alta. |
+| 3. Borrado con delegación | Listener de cada lista: obtiene el ID del botón, realiza DELETE y consulta nuevamente. |
+| 4. CSS y distribución | `API/static/styles.css`: Grid para formulario/lista, Flexbox para cabecera y tarjetas, una columna en pantallas pequeñas. |
+
+Las selecciones de autor/editorial, estados vacíos, mensajes de error y bloqueo de botones durante peticiones permiten usar el dominio existente. Los datos se insertan con `textContent`, sin interpretar HTML del usuario. El frontend no agrega actualización, autenticación ni gestión de lecturas: consume las operaciones necesarias de las cuatro entidades que ya exponía el TP3.
+
+## Verificación manual
+
+- Con listas vacías, comprobar los mensajes iniciales.
+- Crear autor, editorial, usuario y libro; comprobar nombres de las relaciones y que los formularios se limpien.
+- Recargar la página y comprobar persistencia.
+- Intentar repetir un usuario y eliminar un autor/editorial asociado a un libro: debe verse el error sin perder el registro.
+- Eliminar el libro y después sus referencias; crear otro registro y borrarlo para verificar los botones regenerados.
+- Comprobar en Red/Network del navegador los GET, POST y DELETE, sin navegación del documento al crear/borrar.
+- Revisar la página en un ancho de 390 px: formulario y lista deben quedar en una columna, sin desborde horizontal.
+
+## Prueba de navegador opcional
+
+`tests/tp4-browser.cjs` comprueba los flujos anteriores con Chrome, además de campos con espacios, texto que parece HTML, errores de red y un fallo de lectura posterior a un alta confirmada. Requiere una **instancia de prueba con las cuatro listas vacías**; crea y elimina registros. No ejecutar sobre una base con información personal. La aplicación no necesita Node ni Playwright para funcionar.
+
+Con Node/npm y Google Chrome instalados, se puede preparar Playwright fuera del repositorio:
+
+```bash
+npm install --prefix /tmp/bookfly-tp4-browser --no-save playwright@1.62.1
+NODE_PATH=/tmp/bookfly-tp4-browser/node_modules node tests/tp4-browser.cjs
+```
+
+Por defecto prueba `http://localhost:8080`. Puede cambiarse con `BASE_URL`. Las capturas y el resultado se guardan en la carpeta temporal `bookfly-tp4-verificacion`; `TEST_OUTPUT` permite elegir otra ubicación. Si falla a mitad del recorrido pueden quedar registros de prueba: revisar esa instancia antes de repetir.
+
+Las instrucciones de persistencia y API del TP3 se conservan a continuación como documentación de la base utilizada. Sus pruebas borran datos, tal como se detalla allí.
+
+---
+
 # Programacion Web
 Aquí se realizaran entregas de trabajos prácticos para la materia 
 Programación Web de la Universidad Nacional de la Provincia de Buenos Aires 
