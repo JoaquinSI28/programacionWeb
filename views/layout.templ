@@ -1,0 +1,39 @@
+package views
+
+templ Layout(title string) {
+	<!DOCTYPE html>
+	<html lang="es">
+		<head>
+			<meta charset="UTF-8"/>
+			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+			<title>{ title }</title>
+			<link rel="stylesheet" href="/static/styles.css"/>
+		</head>
+		<body>
+			<a class="skip-link" href="#biblioteca">Ir a mi biblioteca</a>
+			<header class="site-header">
+				<div class="header-content">
+					<a class="brand" href="/">Bookfly<span>Tu próxima página empieza acá.</span></a>
+					<nav aria-label="Secciones de la biblioteca">
+						<a href="#biblioteca">Libros</a>
+						<a href="#autores">Autores</a>
+						<a href="#editoriales">Editoriales</a>
+						<a href="#usuarios">Usuarios</a>
+					</nav>
+				</div>
+			</header>
+			<main>{ children... }</main>
+			<footer>Bookfly <span>Un lugar para cada libro.</span></footer>
+		</body>
+	</html>
+}
+
+templ ErrorPage(message string) {
+	@Layout("Bookfly · No se pudo completar la solicitud") {
+		<div class="intro">
+			<h1>No se pudo completar la solicitud</h1>
+			<p class="message error" role="alert">{ message }</p>
+			<a href="/">Volver a la biblioteca</a>
+		</div>
+	}
+}

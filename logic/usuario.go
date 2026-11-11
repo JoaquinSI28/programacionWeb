@@ -6,13 +6,13 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"unicode/utf8"
 )
 
 type Usuario struct {
-	ID         int32
-	Nombre     string
-	Email      string
-	Contrasena string
+	ID     int32
+	Nombre string
+	Email  string
 }
 
 var ErrUsuarioNoEncontrado = errors.New("usuario no encontrado")
@@ -41,7 +41,11 @@ func validateContrasena(contrasena string) error {
 	if contrasena == "" {
 		return &ErrorValidacion{Mensaje: "La contraseña no puede estar vacía"}
 	}
-	if len(contrasena) < 3 {
+	n := utf8.RuneCountInString(contrasena)
+	if n > 255 {
+		return &ErrorValidacion{Mensaje: "La contraseña puede tener hasta 255 caracteres"}
+	}
+	if n < 3 {
 		return &ErrorValidacion{Mensaje: "La contraseña debe tener al menos 3 caracteres"}
 	}
 	return nil

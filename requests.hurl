@@ -1,289 +1,121 @@
-POST http://localhost:8080/autores
-Content-Type: application/json
-{
-  "nombre": "Autor Requests Hurl",
-  "pais": "Argentina",
-  "fecha_nacimiento": "1980-01-15",
-  "biografia": "Autor para probar las operaciones CRUD"
-}
-HTTP/1.1 201
-[Captures]
-autor_id: jsonpath "$.id"
+# TP5: HTML del servidor y formularios clásicos con Post/Redirect/Get.
+GET http://localhost:8080/
+HTTP 200
 [Asserts]
-jsonpath "$.nombre" == "Autor Requests Hurl"
-
-GET http://localhost:8080/autores
-HTTP/1.1 200
-[Asserts]
-header "Content-Type" == "application/json"
-jsonpath "$[0].nombre" == "Autor Requests Hurl"
-
-GET http://localhost:8080/autores/{{autor_id}}
-HTTP/1.1 200
-[Asserts]
-jsonpath "$.id" == {{autor_id}}
-jsonpath "$.nombre" == "Autor Requests Hurl"
-
-PUT http://localhost:8080/autores/{{autor_id}}
-Content-Type: application/json
-{
-  "nombre": "Autor Requests Hurl actualizado",
-  "pais": "Argentina",
-  "fecha_nacimiento": "1980-01-15",
-  "biografia": "Biografia actualizada"
-}
-HTTP/1.1 200
-[Asserts]
-jsonpath "$.nombre" == "Autor Requests Hurl actualizado"
-
-GET http://localhost:8080/autores/{{autor_id}}
-HTTP/1.1 200
-[Asserts]
-jsonpath "$.nombre" == "Autor Requests Hurl actualizado"
+header "Content-Type" == "text/html; charset=utf-8"
+xpath "count(//script)" == 0
+xpath "count(//form[@id='libros-form'])" == 1
 
 POST http://localhost:8080/editoriales
-Content-Type: application/json
-{
-  "nombre": "Editorial Requests Hurl",
-  "sede": "Buenos Aires"
-}
-HTTP/1.1 201
-[Captures]
-editorial_id: jsonpath "$.id"
+[Form]
+nombre: Editorial Hurl TP5
+sede: Tandil
+HTTP 303
 [Asserts]
-jsonpath "$.nombre" == "Editorial Requests Hurl"
-
-GET http://localhost:8080/editoriales
-HTTP/1.1 200
-[Asserts]
-header "Content-Type" == "application/json"
-jsonpath "$[0].nombre" == "Editorial Requests Hurl"
-
-GET http://localhost:8080/editoriales/{{editorial_id}}
-HTTP/1.1 200
-[Asserts]
-jsonpath "$.id" == {{editorial_id}}
-jsonpath "$.nombre" == "Editorial Requests Hurl"
-
-PUT http://localhost:8080/editoriales/{{editorial_id}}
-Content-Type: application/json
-{
-  "nombre": "Editorial Requests Hurl actualizada",
-  "sede": "La Plata"
-}
-HTTP/1.1 200
-[Asserts]
-jsonpath "$.nombre" == "Editorial Requests Hurl actualizada"
-
-GET http://localhost:8080/editoriales/{{editorial_id}}
-HTTP/1.1 200
-[Asserts]
-jsonpath "$.sede" == "La Plata"
-
-POST http://localhost:8080/usuarios
-Content-Type: application/json
-{
-  "nombre": "usuario_requests_hurl",
-  "email": "usuario_requests_hurl@example.com",
-  "contrasena": "clave123"
-}
-HTTP/1.1 201
-[Captures]
-usuario_id: jsonpath "$.id"
-[Asserts]
-jsonpath "$.nombre" == "usuario_requests_hurl"
-jsonpath "$.email" == "usuario_requests_hurl@example.com"
-
-GET http://localhost:8080/usuarios
-HTTP/1.1 200
-[Asserts]
-header "Content-Type" == "application/json"
-jsonpath "$[0].nombre" == "usuario_requests_hurl"
-
-GET http://localhost:8080/usuarios/{{usuario_id}}
-HTTP/1.1 200
-[Asserts]
-jsonpath "$.id" == {{usuario_id}}
-jsonpath "$.nombre" == "usuario_requests_hurl"
-
-PUT http://localhost:8080/usuarios/{{usuario_id}}
-Content-Type: application/json
-{
-  "nombre": "usuario_requests_hurl_actualizado",
-  "email": "usuario_requests_hurl_actualizado@example.com",
-  "contrasena": "clave456"
-}
-HTTP/1.1 200
-[Asserts]
-jsonpath "$.nombre" == "usuario_requests_hurl_actualizado"
-
-GET http://localhost:8080/usuarios/{{usuario_id}}
-HTTP/1.1 200
-[Asserts]
-jsonpath "$.email" == "usuario_requests_hurl_actualizado@example.com"
-
-POST http://localhost:8080/libros
-Content-Type: application/json
-{
-  "titulo": "Libro Requests Hurl",
-  "id_autor": {{autor_id}},
-  "id_editorial": {{editorial_id}},
-  "fecha_lanzamiento": "2020-01-15",
-  "cantidad_paginas": 250
-}
-HTTP/1.1 201
-[Captures]
-libro_id: jsonpath "$.id"
-[Asserts]
-jsonpath "$.titulo" == "Libro Requests Hurl"
-
-GET http://localhost:8080/libros
-HTTP/1.1 200
-[Asserts]
-header "Content-Type" == "application/json"
-jsonpath "$[0].titulo" == "Libro Requests Hurl"
-
-GET http://localhost:8080/libros/{{libro_id}}
-HTTP/1.1 200
-[Asserts]
-jsonpath "$.id" == {{libro_id}}
-jsonpath "$.titulo" == "Libro Requests Hurl"
-
-PUT http://localhost:8080/libros/{{libro_id}}
-Content-Type: application/json
-{
-  "titulo": "Libro Requests Hurl actualizado",
-  "id_autor": {{autor_id}},
-  "id_editorial": {{editorial_id}},
-  "fecha_lanzamiento": "2020-01-15",
-  "cantidad_paginas": 300
-}
-HTTP/1.1 200
-[Asserts]
-jsonpath "$.cantidad_paginas" == 300
-
-GET http://localhost:8080/libros/{{libro_id}}
-HTTP/1.1 200
-[Asserts]
-jsonpath "$.titulo" == "Libro Requests Hurl actualizado"
-
-# Pruebas de validaciones y errores
+header "Location" == "/"
 
 POST http://localhost:8080/autores
-Content-Type: application/json
-```
-{"nombre":
-```
-HTTP/1.1 400
+[Form]
+nombre: Autor Hurl TP5
+pais: Argentina
+fecha_nacimiento: 1980-01-15
+biografia: Autor de prueba
+HTTP 303
 [Asserts]
-jsonpath "$.error" == "Cuerpo JSON inválido"
+header "Location" == "/"
 
 POST http://localhost:8080/usuarios
-Content-Type: application/json
-{
-  "nombre": "   ",
-  "email": "nuevo@example.com",
-  "contrasena": "clave123"
-}
-HTTP/1.1 400
+[Form]
+nombre: lector_hurl_tp5
+email: lector_hurl_tp5@example.com
+contrasena: clave_hurl_tp5
+HTTP 303
+[Asserts]
+header "Location" == "/"
 
-PUT http://localhost:8080/usuarios/{{usuario_id}}
-Content-Type: application/json
-{
-  "nombre": "   ",
-  "email": "nuevo@example.com",
-  "contrasena": "clave123"
-}
-HTTP/1.1 400
+GET http://localhost:8080/
+HTTP 200
+[Captures]
+autor_id: xpath "string(//select[@name='id_autor']/option[2]/@value)"
+editorial_id: xpath "string(//select[@name='id_editorial']/option[2]/@value)"
+autor_delete: xpath "string(//ul[@id='autores-list']//form/@action)"
+editorial_delete: xpath "string(//ul[@id='editoriales-list']//form/@action)"
+usuario_delete: xpath "string(//ul[@id='usuarios-list']//form/@action)"
+[Asserts]
+body contains "Editorial Hurl TP5"
+body contains "Autor Hurl TP5"
+body not contains "clave_hurl_tp5"
+
+POST http://localhost:8080/libros
+[Form]
+titulo: Libro Hurl TP5
+id_autor: {{autor_id}}
+id_editorial: {{editorial_id}}
+fecha_lanzamiento: 2020-01-15
+cantidad_paginas: 250
+HTTP 303
+[Asserts]
+header "Location" == "/"
+
+GET http://localhost:8080/
+HTTP 200
+[Captures]
+libro_delete: xpath "string(//ul[@id='libros-list']//form/@action)"
+[Asserts]
+xpath "count(//ul[@id='libros-list']/li[h3 or div/h3])" == 1
+body contains "Libro Hurl TP5"
+
+# Recargar el GET no repite el alta.
+GET http://localhost:8080/
+HTTP 200
+[Asserts]
+xpath "count(//ul[@id='libros-list']/li[h3 or div/h3])" == 1
 
 POST http://localhost:8080/usuarios
-Content-Type: application/json
-{
-  "nombre": "usuario_nuevo",
-  "email": "incorrecto",
-  "contrasena": "clave123"
-}
-HTTP/1.1 400
-
-POST http://localhost:8080/libros
-Content-Type: application/json
-{
-  "titulo": "Libro de prueba",
-  "id_autor": {{autor_id}},
-  "id_editorial": {{editorial_id}},
-  "fecha_lanzamiento": "2020-01-15",
-  "cantidad_paginas": 0
-}
-HTTP/1.1 400
-
-POST http://localhost:8080/libros
-Content-Type: application/json
-{
-  "titulo": "Libro de prueba",
-  "id_autor": {{autor_id}},
-  "id_editorial": {{editorial_id}},
-  "fecha_lanzamiento": "incorrecta",
-  "cantidad_paginas": 250
-}
-HTTP/1.1 400
-
-GET http://localhost:8080/usuarios/abc
-HTTP/1.1 400
-
-PATCH http://localhost:8080/usuarios/{{usuario_id}}
-HTTP/1.1 405
+[Form]
+nombre: lector_hurl_tp5
+email: lector_hurl_tp5@example.com
+contrasena: clave_hurl_tp5
+HTTP 409
 [Asserts]
-header "Allow" == "GET, PUT, DELETE"
+body contains "ya está registrado"
+body not contains "clave_hurl_tp5"
 
-POST http://localhost:8080/usuarios
-Content-Type: application/json
-{
-  "nombre": "usuario_requests_hurl_actualizado",
-  "email": "nuevo@example.com",
-  "contrasena": "clave123"
-}
-HTTP/1.1 409
-
-POST http://localhost:8080/libros
-Content-Type: application/json
-{
-  "titulo": "Libro de prueba",
-  "id_autor": 2147483647,
-  "id_editorial": {{editorial_id}},
-  "fecha_lanzamiento": "2020-01-15",
-  "cantidad_paginas": 250
-}
-HTTP/1.1 409
-
-DELETE http://localhost:8080/autores/{{autor_id}}
-HTTP/1.1 409
-
-DELETE http://localhost:8080/libros/{{libro_id}}
-HTTP/1.1 204
-
-GET http://localhost:8080/libros/{{libro_id}}
-HTTP/1.1 404
-
-DELETE http://localhost:8080/usuarios/{{usuario_id}}
-HTTP/1.1 204
-
-GET http://localhost:8080/usuarios/{{usuario_id}}
-HTTP/1.1 404
-
-DELETE http://localhost:8080/autores/{{autor_id}}
-HTTP/1.1 204
-
-GET http://localhost:8080/autores/{{autor_id}}
-HTTP/1.1 404
-
-DELETE http://localhost:8080/editoriales/{{editorial_id}}
-HTTP/1.1 204
-
-GET http://localhost:8080/editoriales/{{editorial_id}}
-HTTP/1.1 404
-
-GET http://localhost:8080/libros
-HTTP/1.1 200
+POST http://localhost:8080/editoriales
+[Form]
+nombre:
+sede: Tandil
+HTTP 400
 [Asserts]
-header "Content-Type" == "application/json"
-jsonpath "$" count == 0
+body contains "El nombre no puede estar vacío"
+
+POST http://localhost:8080{{autor_delete}}
+HTTP 409
+[Asserts]
+body contains "datos relacionados"
+
+GET http://localhost:8080{{libro_delete}}
+HTTP 405
+
+POST http://localhost:8080{{libro_delete}}
+HTTP 303
+
+POST http://localhost:8080{{autor_delete}}
+HTTP 303
+
+POST http://localhost:8080{{editorial_delete}}
+HTTP 303
+
+POST http://localhost:8080{{usuario_delete}}
+HTTP 303
+
+GET http://localhost:8080/
+HTTP 200
+[Asserts]
+xpath "count(//ul[@id='libros-list']//form)" == 0
+xpath "count(//ul[@id='autores-list']//form)" == 0
+xpath "count(//ul[@id='editoriales-list']//form)" == 0
+xpath "count(//ul[@id='usuarios-list']//form)" == 0
+
+GET http://localhost:8080/app.js
+HTTP 404

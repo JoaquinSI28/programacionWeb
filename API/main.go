@@ -1,11 +1,13 @@
 package main
 
 import (
+	"context"
 	"database/sql"
 	"fmt"
 	"log"
 	"net/http"
 	"os"
+	"time"
 
 	dbsqlc "bookfly.com/db/sqlc"
 	"bookfly.com/repository"
@@ -33,28 +35,18 @@ func main() {
 	}
 	log.Println("Conexión a la base de datos exitosa")
 
+	if err := repository.MigrarContrasenas(context.Background(), dbConn); err != nil {
+		log.Fatalf("Error al preparar usuarios: %v", err)
+	}
 	queries := dbsqlc.New(dbConn)
-	usuarioRepo := repository.NewUsuarioSQL(queries)
-	libroRepo := repository.NewLibroSQL(queries)
-	autorRepo := repository.NewAutorSQL(queries)
-	editorialRepo := repository.NewEditorialSQL(queries)
-	usuarios := usuarioHandler(usuarioRepo)
-	libros := libroHandler(libroRepo)
-	autores := autorHandler(autorRepo)
-	editoriales := editorialHandler(editorialRepo)
-	http.Handle("/usuarios", usuarios)
-	http.Handle("/usuarios/{id}", usuarios)
-	http.Handle("/libros", libros)
-	http.Handle("/libros/{id}", libros)
-	http.Handle("/autores", autores)
-	http.Handle("/autores/{id}", autores)
-	http.Handle("/editoriales", editoriales)
-	http.Handle("/editoriales/{id}", editoriales)
-	http.Handle("/", http.FileServer(http.Dir("./static")))
 
 	port := ":8080"
 	log.Printf("Servidor escuchando en http://localhost%s", port)
-	log.Fatal(http.ListenAndServe(port, nil))
+	server := &http.Server{
+		Addr: port, Handler: newWebHandler(queries),
+		ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second,
+	}
+	log.Fatal(server.ListenAndServe())
 }
 
 func envOrDefault(name, fallback string) string {

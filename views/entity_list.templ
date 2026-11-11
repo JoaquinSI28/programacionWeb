@@ -1,0 +1,82 @@
+package views
+
+import (
+	"bookfly.com/logic"
+	"strconv"
+)
+
+templ DeleteForm(entity string, id int32, name string) {
+	<form class="delete-form" method="post" action={ templ.SafeURL("/" + entity + "/" + idString(id) + "/eliminar") }>
+		<button type="submit" class="delete-button" aria-label={ "Eliminar " + name }>Eliminar</button>
+	</form>
+}
+
+templ LibroList(libros []*logic.Libro, autores map[int32]string, editoriales map[int32]string) {
+	<ul id="libros-list" class="entity-list" aria-label="Libros">
+		if len(libros) == 0 {
+			<li class="empty">Todavía no hay libros. Agregá el primero.</li>
+		}
+		for _, libro := range libros {
+			<li class="entity-card">
+				<div class="entity-info">
+					<h3>{ libro.Titulo }</h3>
+					<p>{ autores[libro.IDAutor] + " · " + editoriales[libro.IDEditorial] }</p>
+					<p>{ strconv.FormatInt(int64(libro.CantidadPaginas), 10) + " páginas · Lanzamiento: " + libro.FechaLanzamiento.Format("2006-01-02") }</p>
+				</div>
+				@DeleteForm("libros", libro.IDLibro, libro.Titulo)
+			</li>
+		}
+	</ul>
+}
+
+templ AutorList(autores []*logic.Autor) {
+	<ul id="autores-list" class="entity-list" aria-label="Autores">
+		if len(autores) == 0 {
+			<li class="empty">Todavía no hay autores. Sumá uno para empezar.</li>
+		}
+		for _, autor := range autores {
+			<li class="entity-card">
+				<div class="entity-info">
+					<h3>{ autor.Nombre }</h3>
+					<p>{ autor.Pais + " · Nacimiento: " + autor.FechaNacimiento.Format("2006-01-02") }</p>
+					<p>{ autor.Biografia }</p>
+				</div>
+				@DeleteForm("autores", autor.IDAutor, autor.Nombre)
+			</li>
+		}
+	</ul>
+}
+
+templ EditorialList(editoriales []*logic.Editorial) {
+	<ul id="editoriales-list" class="entity-list" aria-label="Editoriales">
+		if len(editoriales) == 0 {
+			<li class="empty">Todavía no hay editoriales. Agregá una para tus libros.</li>
+		}
+		for _, editorial := range editoriales {
+			<li class="entity-card">
+				<div class="entity-info">
+					<h3>{ editorial.Nombre }</h3>
+					<p>{ "Sede: " + editorial.Sede }</p>
+				</div>
+				@DeleteForm("editoriales", editorial.IDEditorial, editorial.Nombre)
+			</li>
+		}
+	</ul>
+}
+
+templ UsuarioList(usuarios []*logic.Usuario) {
+	<ul id="usuarios-list" class="entity-list" aria-label="Usuarios">
+		if len(usuarios) == 0 {
+			<li class="empty">Todavía no hay usuarios registrados.</li>
+		}
+		for _, usuario := range usuarios {
+			<li class="entity-card">
+				<div class="entity-info">
+					<h3>{ usuario.Nombre }</h3>
+					<p>{ usuario.Email }</p>
+				</div>
+				@DeleteForm("usuarios", usuario.ID, usuario.Nombre)
+			</li>
+		}
+	</ul>
+}

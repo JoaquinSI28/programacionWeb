@@ -5,10 +5,12 @@ import (
 	"database/sql"
 	"fmt"
 	"os"
+	"strings"
 	"testing"
 	"time"
 
 	db "bookfly.com/db/sqlc"
+	"bookfly.com/repository"
 	_ "github.com/lib/pq"
 )
 
@@ -34,9 +36,9 @@ func TestUsuario_CRUD(t *testing.T) {
 
 	// 1. CreateUsuario
 	createParams := db.CreateUsuarioParams{
-		NombreUsuario: "usuario_test",
-		Mail:          "test@example.com",
-		Contrasena:    "secreta123",
+		NombreUsuario:  "usuario_test",
+		Mail:           "test@example.com",
+		ContrasenaHash: "hash_de_prueba",
 	}
 	user, err := queries.CreateUsuario(ctx, createParams)
 	if err != nil {
@@ -56,10 +58,10 @@ func TestUsuario_CRUD(t *testing.T) {
 
 	// 3. UpdateUsuario
 	updateParams := db.UpdateUsuarioParams{
-		IDUsuario:     user.IDUsuario,
-		NombreUsuario: "usuario_modificado",
-		Mail:          "mod@example.com",
-		Contrasena:    "nueva_secreta",
+		IDUsuario:      user.IDUsuario,
+		NombreUsuario:  "usuario_modificado",
+		Mail:           "mod@example.com",
+		ContrasenaHash: "otro_hash_de_prueba",
 	}
 	err = queries.UpdateUsuario(ctx, updateParams)
 	if err != nil {
@@ -194,4 +196,36 @@ func envOrDefault(name, fallback string) string {
 		return value
 	}
 	return fallback
+}
+
+func TestMigracionDeContrasenas(t *testing.T) {
+	ctx := context.Background()
+	conn, err := sql.Open("postgres", fmt.Sprintf("postgresql://%s:%s@localhost:5432/%s?sslmode=disable",
+		envOrDefault("POSTGRES_USER", "postgres"), envOrDefault("POSTGRES_PASSWORD", "postgres"), envOrDefault("POSTGRES_DB", "prueba")))
+	if err != nil {
+		t.Fatal(err)
+	}
+	defer conn.Close()
+	// Una tabla temporal en una única conexión reproduce el esquema anterior.
+	conn.SetMaxOpenConns(1)
+	if _, err := conn.Exec("CREATE TEMP TABLE usuario (id_usuario integer PRIMARY KEY, contrasena varchar(255) NOT NULL); INSERT INTO usuario VALUES (1, 'anterior'), (2, 'anterior')"); err != nil {
+		t.Fatal(err)
+	}
+	if err := repository.MigrarContrasenas(ctx, conn); err != nil {
+		t.Fatal(err)
+	}
+	var first, second string
+	if err := conn.QueryRow("SELECT a.contrasena_hash, b.contrasena_hash FROM usuario a, usuario b WHERE a.id_usuario=1 AND b.id_usuario=2").Scan(&first, &second); err != nil {
+		t.Fatal(err)
+	}
+	if first == second || !strings.HasPrefix(first, "pbkdf2-sha256$600000$") {
+		t.Fatal("hash o sal incorrectos")
+	}
+	if err := repository.MigrarContrasenas(ctx, conn); err != nil {
+		t.Fatal(err)
+	}
+	var again string
+	if err := conn.QueryRow("SELECT contrasena_hash FROM usuario WHERE id_usuario=1").Scan(&again); err != nil || again != first {
+		t.Fatal("el segundo arranque cambió la credencial", err)
+	}
 }

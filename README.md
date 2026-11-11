@@ -1,238 +1,122 @@
-# Bookfly — TP4: interfaz de usuario
+# Bookfly — TP5: renderizado del servidor con templ
 
-Esta rama `tp4` continúa la entrega `tp3` (commit `4e70149`). Incorpora una interfaz HTML/CSS/JavaScript que consume la API REST existente. El servidor Go, sus validaciones y PostgreSQL se mantienen. El TP5 deberá partir del TP4 terminado, en una nueva rama `tp5`.
+Registro de libros desarrollado para Programación Web, UNICEN. La rama `tp5` continúa el TP4 terminado en `392b6bf`, conservando PostgreSQL, sqlc, las entidades y las validaciones existentes.
 
-## Iniciar el TP4
+En este TP, Go obtiene los datos y templ produce el HTML completo. Los formularios funcionan con JavaScript desactivado: envían POST, el servidor guarda y responde `303 See Other` hacia `/`; el navegador hace un GET y muestra la lista actualizada. Es el patrón **Post/Redirect/Get (PRG)**.
 
-Con Docker Desktop iniciado, Docker Compose y make disponibles:
+## Requisitos
+
+Docker Desktop iniciado, Docker Compose y make. Go, sqlc, templ y Hurl se ejecutan dentro de contenedores; no hace falta instalarlos en el equipo.
+
+Versiones: Go 1.26.7 en el módulo (imagen Go 1.26), PostgreSQL 15, sqlc 1.31.1 y templ 0.3.1100. El módulo templ y su generador usan la misma versión. Se conserva lib/pq 1.12.3.
+
+## Comando de entrega
+
+```bash
+make run-app
+```
+
+Este comando:
+
+1. Limpia contenedores y volumen anteriores **del proyecto `bookfly-tp5`**.
+2. Genera Go desde SQL (`sqlc`) y desde componentes (`templ`).
+3. Compila la aplicación y levanta PostgreSQL y el servidor, esperando sus comprobaciones de salud.
+4. Muestra los registros del servidor. Abrir **http://localhost:8080/**.
+5. Al salir con **Ctrl+C**, detiene los servicios y elimina el volumen de ese proyecto, incluidos sus datos, como requiere el arranque de entrega.
+
+El proyecto Compose del TP5 tiene su propio nombre y volumen. Si siguen ocupados los puertos por el TP4 u otra aplicación, se pueden elegir otros:
+
+```bash
+APP_PORT=8085 POSTGRES_PORT=5435 make run-app
+```
+
+En ese caso, abrir http://localhost:8085/ . No usar una base con datos que se desee conservar para el arranque de entrega o las pruebas.
+
+## Desarrollo conservando los datos
 
 ```bash
 make up
 ```
 
-Abrir **http://localhost:8080/** desde el navegador. Este comando genera sqlc antes de compilar e iniciar la API y PostgreSQL. No abrir `index.html` con `file://`: la página y la API se sirven desde el mismo origen, sin configuración adicional de CORS.
-
-Para detener los servicios conservando los datos:
+Genera, compila e inicia los servicios en segundo plano. Para detenerlos conservando el volumen:
 
 ```bash
-docker compose down
+make stop
 ```
 
-## Usar la interfaz
+Para eliminarlos junto con los datos:
 
-1. Agregar un autor y una editorial en sus respectivas secciones.
-2. Agregar un libro seleccionando esas referencias y completando título, fecha de lanzamiento y páginas.
-3. Agregar usuarios desde su formulario si se desea probar esa entidad.
-4. Usar **Eliminar** en cualquier listado. Si un autor o editorial tiene libros asociados, la API rechaza el borrado y la interfaz muestra el error. Primero eliminar los libros asociados.
+```bash
+make down
+```
 
-Al cargar se consultan las cuatro listas con GET. Cada formulario intercepta `submit`, envía JSON con POST y vuelve a consultar las listas. Los botones dinámicos de borrado se manejan mediante un listener en cada lista (delegación de eventos), envían DELETE y refrescan los datos sin recargar el documento. Las contraseñas no se muestran en los listados.
+Usar estos targets mantiene el nombre de proyecto del TP5. Si se personaliza `COMPOSE_PROJECT_NAME`, usar el mismo valor al arrancar y detener. Se admiten `.env` local o variables de entorno `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD`, `APP_PORT` y `POSTGRES_PORT`. `.env` no se versiona. Los valores de desarrollo predeterminados son base `prueba`, usuario `postgres`, contraseña `postgres`.
 
-## Correspondencia con el Trabajo de Cursada del TP4
+## Usar la aplicación
 
-Fuente: `tp4.pdf`, sección «Trabajo de Cursada: Construyendo la Interfaz de Usuario», páginas 2–3. Los ejercicios didácticos previos no son entregas adicionales.
+1. Agregar un autor y una editorial.
+2. Crear un libro eligiendo esas referencias, fecha de lanzamiento y páginas.
+3. Crear usuarios desde su sección.
+Las contraseñas admiten entre 3 y 255 caracteres. El repositorio guarda un hash PBKDF2-SHA256 con sal aleatoria. Al arrancar sobre un volumen anterior, el servidor migra los usuarios existentes en una transacción. El listado consulta únicamente ID, nombre y correo.
 
-| Punto | Implementación |
+Para eliminar registros, usá los botones de cada sección. El borrado también usa un formulario POST y PRG, para conservar la operación del TP4 sin JavaScript. Un autor/editorial con libros relacionados no se puede eliminar hasta borrar esos libros.
+
+Cada envío correcto produce una navegación completa. Recargar después de la redirección repite el GET, no el POST. Si los datos son inválidos, el servidor devuelve la página con el error y conserva los campos seguros del formulario; la contraseña debe volver a ingresarse. La base sigue permitiendo editoriales con igual nombre/sede, decisión pendiente del dominio.
+
+## Relación con la consigna y la teoría
+
+Fuente: `tp5.pdf`, sección «Trabajo de Cursada: Renderizado del Lado del Servidor con Templ», página 3. Productos y SQLite son el ejemplo didáctico, no una migración del dominio Bookfly.
+
+| Requisito | Implementación |
 | --- | --- |
-| 1. Título, formulario y contenedor con ID | `API/static/index.html`: título principal y formularios/listas para libros, autores, editoriales y usuarios. |
-| 2. JavaScript y comunicación con la API | `API/static/app.js`: fetch inicial, creación de nodos con datos, POST JSON y recarga de listas después del alta. |
-| 3. Borrado con delegación | Listener de cada lista: obtiene el ID del botón, realiza DELETE y consulta nuevamente. |
-| 4. CSS y distribución | `API/static/styles.css`: Grid para formulario/lista, Flexbox para cabecera y tarjetas, una columna en pantallas pequeñas. |
+| Componentes en views | `layout.templ`, `entity_list.templ`, `entity_form.templ`, `index.templ`. |
+| GET / consulta y renderiza HTML | `API/web.go`: usa logic → repository → consultas sqlc y renderiza `views.IndexPage`. |
+| POST parsea, crea y redirige | `r.ParseForm`, validaciones existentes, Create de sqlc a través del repositorio y `http.Redirect` con 303. |
+| Generación y ejecución automatizadas | Makefile, `scripts/run-app.sh`, Compose y Dockerfile. |
+| Entrega sin .js | No hay archivos .js, .cjs ni .mjs propios; tampoco scripts ni eventos JavaScript en las vistas. |
 
-Las selecciones de autor/editorial, estados vacíos, mensajes de error y bloqueo de botones durante peticiones permiten usar el dominio existente. Los datos se insertan con `textContent`, sin interpretar HTML del usuario. Cada lista se muestra cuando termina su consulta, y las peticiones tienen un plazo de 15 segundos. Los campos del formulario enviado permanecen bloqueados hasta confirmar o fallar; en caso de error, conservan sus valores. El frontend no agrega actualización, autenticación ni gestión de lecturas: consume las operaciones necesarias de las cuatro entidades que ya exponía el TP3.
+Teoría: `09-view-static.pdf`, páginas físicas 3–5 (SSR y recargas completas), 15–20 (templ y flujo), 22 (CSS estático con StripPrefix), 23–37 (componentes y sqlc), 38–39 (dependencias). `07-logic.pdf`, páginas 13–15, fundamenta conservar las capas y validaciones. La composición se contrastó con https://templ.guide/syntax-and-usage/template-composition/ .
 
-## Verificación manual
+Los formularios de borrado, los mapas de nombres de autores/editoriales y la conservación de campos ante errores son decisiones para adaptar lo que ya tenía el TP4; la sección de cursada exige principalmente listado y alta. HTMX queda para TP6.
 
-- Con listas vacías, comprobar los mensajes iniciales.
-- Crear autor, editorial, usuario y libro; comprobar nombres de las relaciones y que los formularios se limpien.
-- Recargar la página y comprobar persistencia.
-- Intentar repetir un usuario y eliminar un autor/editorial asociado a un libro: debe verse el error sin perder el registro.
-- Eliminar el libro y después sus referencias; crear otro registro y borrarlo para verificar los botones regenerados.
-- Comprobar en Red/Network del navegador los GET, POST y DELETE, sin navegación del documento al crear/borrar.
-- Revisar la página en un ancho de 390 px: formulario y lista deben quedar en una columna, sin desborde horizontal.
+## Estructura
 
-## Prueba de navegador opcional
+- `API/main.go`: conexión y servidor.
+- `API/web.go`: rutas HTML, formularios, errores y PRG.
+- `API/static/styles.css`: estilos del TP4, adaptados a formularios de borrado.
+- `views/`: componentes templ y datos de presentación.
+- `logic/`: entidades, contratos y validaciones existentes.
+- `repository/`: implementaciones con sqlc existentes.
+- `db/schema/` y `db/queries/`: PostgreSQL y SQL existentes.
+- `db/sqlc/` y `views/*_templ.go`: Go generado; no se versiona.
+- `API/web_test.go`: pruebas HTTP con base real.
+- `requests.hurl`: recorrido HTML reproducible.
 
-`tests/tp4-browser.cjs` comprueba los flujos anteriores con Chrome, además de campos con espacios, texto que parece HTML, errores de red y un fallo de lectura posterior a un alta confirmada, consultas demoradas, recuperación por tiempo de espera y bloqueo temporal de los campos durante el envío. Requiere una **instancia de prueba con las cuatro listas vacías**; crea y elimina registros. No ejecutar sobre una base con información personal. La aplicación no necesita Node ni Playwright para funcionar.
+Los handlers JSON, HTML estático y app.js del TP4 quedan en su rama histórica `tp4`. El Dockerfile genera sqlc y templ desde las fuentes también durante la compilación, sin depender de archivos generados previamente en la máquina.
 
-Con Node/npm y Google Chrome instalados, se puede preparar Playwright fuera del repositorio:
-
-```bash
-npm install --prefix /tmp/bookfly-tp4-browser --no-save playwright@1.62.1
-NODE_PATH=/tmp/bookfly-tp4-browser/node_modules node tests/tp4-browser.cjs
-```
-
-Por defecto prueba `http://localhost:8080`. Puede cambiarse con `BASE_URL`. Las capturas y el resultado se guardan en la carpeta temporal `bookfly-tp4-verificacion`; `TEST_OUTPUT` permite elegir otra ubicación. Si falla a mitad del recorrido pueden quedar registros de prueba: revisar esa instancia antes de repetir.
-
-Las instrucciones de persistencia y API del TP3 se conservan a continuación como documentación de la base utilizada. Sus pruebas borran datos, tal como se detalla allí.
-
----
-
-# Programacion Web
-Aquí se realizaran entregas de trabajos prácticos para la materia 
-Programación Web de la Universidad Nacional de la Provincia de Buenos Aires 
-del curso 2026.
-
-# Dominio
-Un registro de libros leídos será el tema principal de la app.
-
-# Persistencia
-
-La aplicación utiliza PostgreSQL como sistema de persistencia. El esquema de la base de datos se encuentra en `db/schema/schema.sql` y se monta en el contenedor de PostgreSQL para crear las tablas cuando se inicializa una base nueva.
-
-## Modelo de datos
-
-- `Autor`: almacena el nombre, país, fecha de nacimiento y biografía de cada autor.
-- `Editorial`: almacena el nombre y la sede de cada editorial.
-- `Usuario`: almacena el nombre de usuario, correo electrónico y contraseña. El nombre de usuario y el correo son únicos.
-- `Libro`: almacena el título, fecha de lanzamiento, cantidad de páginas y sus relaciones con un autor y una editorial.
-- `Lee`: relaciona usuarios con libros y almacena el estado de lectura y la reseña. La combinación `id_usuario` e `id_libro` es única.
-
-Las relaciones principales son:
-
-```text
-Autor 1 ---- N Libro N ---- 1 Editorial
-Usuario N ---- N Libro (a través de Lee)
-```
-
-Las claves foráneas garantizan que un libro solo pueda referenciar autores y editoriales existentes, y que un registro de lectura solo pueda referenciar usuarios y libros existentes.
-
-## Acceso a los datos
-
-Las consultas SQL se encuentran en `db/queries/`. sqlc las transforma en código Go dentro de `db/sqlc/`, que es una carpeta generada automáticamente y no se versiona. La configuración de esta generación está en `sqlc.yaml`.
-
-Docker Compose utiliza un volumen llamado `pgdata` para conservar los datos de PostgreSQL entre ejecuciones. Los comandos de pruebas eliminan ese volumen antes de comenzar y al finalizar porque los tests utilizan una base de datos temporal.
-
-# Pruebas de persistencia
-
-Solo es necesario clonar el repositorio, ubicarse en su carpeta raíz y ejecutar:
+## Pruebas automatizadas
 
 ```bash
 make test
-```
-
-El comando se encarga de:
-
-1. Eliminar los contenedores y el volumen de una ejecución anterior, y levantar PostgreSQL con valores de desarrollo predeterminados.
-2. Generar automáticamente el código de `db/sqlc/`.
-3. Esperar a que PostgreSQL esté listo.
-4. Ejecutar los tests de Go.
-5. Detener y eliminar los contenedores al finalizar, incluso si un test falla.
-
-Si se necesitan otros datos de conexión, se puede crear un archivo `.env` en la raíz antes de ejecutar `make test`, usando estas variables:
-
-```env
-POSTGRES_DB=prueba
-POSTGRES_USER=postgres
-POSTGRES_PASSWORD=postgres
-```
-
-El archivo `.env` es local y no debe subirse al repositorio.
-
-
-## Ejecución y pruebas del CRUD
-
-Se necesita Docker iniciado, Docker Compose y make. Para ejecutar las pruebas de persistencia con `make test` tambien se necesita Go 1.26.7 o superior. sqlc y Hurl se ejecutan dentro de Docker.
-
-Para iniciar la aplicación:
-
-```bash
-make up
-```
-
-Genera los archivos de sqlc, construye la imagen de la API y levanta PostgreSQL y el servidor. Espera a que ambos servicios estén saludables. La aplicación queda disponible en `http://localhost:8080`.
-
-Para probar la API de manera rapida:
-
-```bash
-make test-hurl 
-```
-
-Borra los contenedores y el volumen anterior, prepara PostgreSQL, genera sqlc, construye e inicia la API y ejecuta `requests.hurl`. Las pruebas verifican creación, listado, búsqueda por ID, actualización y eliminación de usuarios, libros, autores y editoriales. Tambien se prueban datos inválidos, registros inexistentes, duplicados y registros relacionados. Hurl se ejecuta dentro de Docker.
-
-**Antes y despues de las pruebas se eliminan los contenedores y el volumen de PostgreSQL, incluidos sus datos.**
-
-Para ejecutar las pruebas de persistencia y de la API:
-
-```bash
+make test-hurl
+# O ejecutar ambas:
 make test-all
 ```
 
-Para ejecutar el mismo archivo directamente, primero iniciar la aplicación con `make up` sobre una base sin datos de pruebas anteriores y tener Hurl instalado:
+Las pruebas limpian contenedores y volumen de `bookfly-tp5` antes y después, incluso si fallan. Se pueden aislar con otro `COMPOSE_PROJECT_NAME` y otros puertos igual que el arranque. `make test` genera los paquetes y ejecuta `go test ./...` dentro de Docker contra PostgreSQL real. `make test-hurl` comprueba HTML, formularios, 303/Location, GET, errores, borrado y ausencia de JavaScript con Hurl.
 
-```bash
-hurl --test requests.hurl
-```
+La prueba HTTP verifica además que recargar no duplique altas, que se escape el contenido HTML del usuario, que no se devuelvan contraseñas, que fallen números/fechas/referencias inválidas y que GET no permita borrar.
 
-Para detener la aplicación conservando los datos:
+## Comprobación manual
 
-```bash
-docker compose down
-```
+- Ver el código fuente de la página: las listas y sus registros deben estar en el HTML recibido.
+- Desactivar JavaScript y crear autor, editorial, usuario y libro.
+- En Red/Network, observar POST → 303 → GET / → 200 al guardar.
+- Recargar y confirmar persistencia sin duplicados.
+- Probar usuario repetido y borrado de autor con libros asociados: se debe mostrar el error en HTML.
+- Borrar el libro y después sus referencias.
+- Revisar escritorio y ancho móvil de 390 px.
 
-Para borrar los contenedores, imágenes y volúmenes del proyecto, incluidos los datos de PostgreSQL:
+Ver `docs/TP5.md` para el registro de implementación, pruebas ejecutadas y pendientes.
 
-```bash
-docker compose --profile test down --rmi all --volumes --remove-orphans
-```
-
-### Endpoints
-
-En este TP3 se exponen usuarios, autores, editoriales y libros. La relacion `Lee` queda en la capa de datos.
-
-Las rutas son `/usuarios`, `/autores`, `/editoriales` y `/libros`. Para cada una se pueden realizar estas operaciones:
-
-| Metodo | Ruta | Descripcion | Respuesta |
-| --- | --- | --- | --- |
-| POST | /entidades | Crear un registro | 201 y el objeto creado |
-| GET | /entidades | Listar los registros | 200 y un array JSON |
-| GET | /entidades/{id} | Obtener un registro | 200 y el objeto |
-| PUT | /entidades/{id} | Actualizar un registro | 200 y el objeto actualizado |
-| DELETE | /entidades/{id} | Eliminar un registro | 204 sin contenido |
-
-`entidades` se reemplaza por el nombre de la ruta correspondiente. POST y PUT reciben JSON con `Content-Type: application/json`. En PUT se envian todos los campos.
-
-Ejemplos de los cuerpos para crear o actualizar:
-
-Usuario:
-```json
-{"nombre":"usuario1","email":"usuario1@example.com","contrasena":"clave123"}
-```
-
-Autor:
-```json
-{"nombre":"Autor de prueba","pais":"Argentina","fecha_nacimiento":"1980-01-15","biografia":"Biografia del autor"}
-```
-
-Editorial:
-```json
-{"nombre":"Editorial de prueba","sede":"Buenos Aires"}
-```
-
-Libro (el autor y la editorial deben existir):
-```json
-{"titulo":"Libro de prueba","id_autor":1,"id_editorial":1,"fecha_lanzamiento":"2020-01-15","cantidad_paginas":250}
-```
-
-Las respuestas incluyen los campos enviados y el `id` del registro. En usuarios no se devuelve la contraseña. Si no hay registros, el listado devuelve `[]`.
-
-### Validaciones y errores
-
-- Los nombres, el titulo, el pais, la biografia y la sede no pueden estar vacíos ni contener solo espacios.
-- El email debe tener un formato válido y la contraseña debe tener al menos 3 caracteres.
-- Los IDs y la cantidad de paginas deben ser mayores a cero.
-- Las fechas se envian con formato `YYYY-MM-DD`. La fecha de lanzamiento no puede ser futura.
-- El nombre de usuario y el email no pueden repetirse.
-- No se puede guardar un libro con un autor o editorial inexistentes, ni eliminar un registro que tiene datos relacionados.
-
-Los errores se devuelven como JSON, por ejemplo `{"error":"Usuario no encontrado"}`.
-
-| Codigo | Motivo |
-| --- | --- |
-| 400 | JSON, ID o datos inválidos |
-| 404 | No existe el registro solicitado |
-| 405 | El metodo no esta permitido para esa ruta |
-| 409 | Nombre de usuario o email repetido, o conflicto con registros relacionados |
-| 500 | Error interno del servidor |
-
-### Aclaraciones
-En esta entrega las contraseñas se almacenan en texto plano. Se optó por dejar el hashing de contraseñas y la autenticación para mas adelante.
+El control de salud consulta una constante en PostgreSQL mediante sqlc y devuelve HTTP 204 en `GET /salud`.

@@ -1,0 +1,85 @@
+package views
+
+
+templ FormError(data PageData, entity string) {
+	if data.ActiveForm == entity && data.Error != "" {
+		<p class="message error" role="alert">{ data.Error }</p>
+	}
+}
+
+templ LibroForm(data PageData) {
+	<form id="libros-form" action="/libros" method="post">
+		<h3>Agregar un libro</h3>
+		@FormError(data, "libros")
+		<label for="libro-titulo">Título</label>
+		<input id="libro-titulo" name="titulo" required maxlength="255" value={ data.Value("libros", "titulo") }/>
+		<label for="libro-autor">Autor</label>
+		<select id="libro-autor" name="id_autor" required>
+			<option value="">Seleccioná un autor</option>
+			for _, autor := range data.Autores {
+				<option value={ idString(autor.IDAutor) } selected?={ data.Value("libros", "id_autor") == idString(autor.IDAutor) }>{ autor.Nombre }</option>
+			}
+		</select>
+		<label for="libro-editorial">Editorial</label>
+		<select id="libro-editorial" name="id_editorial" required>
+			<option value="">Seleccioná una editorial</option>
+			for _, editorial := range data.Editoriales {
+				<option value={ idString(editorial.IDEditorial) } selected?={ data.Value("libros", "id_editorial") == idString(editorial.IDEditorial) }>{ editorial.Nombre }</option>
+			}
+		</select>
+		<p class="field-hint">Si no aparecen opciones, agregalas en las secciones de abajo.</p>
+		<div class="form-row">
+			<div>
+				<label for="libro-fecha">Fecha de lanzamiento</label>
+				<input id="libro-fecha" type="date" name="fecha_lanzamiento" required max={ data.Today } value={ data.Value("libros", "fecha_lanzamiento") }/>
+			</div>
+			<div>
+				<label for="libro-paginas">Páginas</label>
+				<input id="libro-paginas" type="number" name="cantidad_paginas" min="1" max="2147483647" step="1" required value={ data.Value("libros", "cantidad_paginas") }/>
+			</div>
+		</div>
+		<button type="submit">Agregar libro</button>
+	</form>
+}
+
+templ AutorForm(data PageData) {
+	<form id="autores-form" action="/autores" method="post">
+		<h3>Agregar un autor</h3>
+		@FormError(data, "autores")
+		<label for="autor-nombre">Nombre</label>
+		<input id="autor-nombre" name="nombre" required maxlength="255" value={ data.Value("autores", "nombre") }/>
+		<label for="autor-pais">País</label>
+		<input id="autor-pais" name="pais" required maxlength="100" value={ data.Value("autores", "pais") }/>
+		<label for="autor-fecha">Fecha de nacimiento</label>
+		<input id="autor-fecha" name="fecha_nacimiento" type="date" required value={ data.Value("autores", "fecha_nacimiento") }/>
+		<label for="autor-biografia">Biografía</label>
+		<textarea id="autor-biografia" name="biografia" rows="3" required>{ data.Value("autores", "biografia") }</textarea>
+		<button type="submit">Agregar autor</button>
+	</form>
+}
+
+templ EditorialForm(data PageData) {
+	<form id="editoriales-form" action="/editoriales" method="post">
+		<h3>Agregar una editorial</h3>
+		@FormError(data, "editoriales")
+		<label for="editorial-nombre">Nombre</label>
+		<input id="editorial-nombre" name="nombre" required maxlength="255" value={ data.Value("editoriales", "nombre") }/>
+		<label for="editorial-sede">Sede</label>
+		<input id="editorial-sede" name="sede" required maxlength="255" value={ data.Value("editoriales", "sede") }/>
+		<button type="submit">Agregar editorial</button>
+	</form>
+}
+
+templ UsuarioForm(data PageData) {
+	<form id="usuarios-form" action="/usuarios" method="post">
+		<h3>Agregar un usuario</h3>
+		@FormError(data, "usuarios")
+		<label for="usuario-nombre">Nombre de usuario</label>
+		<input id="usuario-nombre" name="nombre" autocomplete="username" required maxlength="100" value={ data.Value("usuarios", "nombre") }/>
+		<label for="usuario-email">Correo electrónico</label>
+		<input id="usuario-email" name="email" type="email" autocomplete="email" required maxlength="255" value={ data.Value("usuarios", "email") }/>
+		<label for="usuario-contrasena">Contraseña</label>
+		<input id="usuario-contrasena" name="contrasena" type="password" autocomplete="new-password" minlength="3" maxlength="255" required/>
+		<button type="submit">Agregar usuario</button>
+	</form>
+}

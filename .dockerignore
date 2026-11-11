@@ -2,3 +2,5 @@
 .gitignore
 .env
 .env.*
+db/sqlc
+views/*_templ.go

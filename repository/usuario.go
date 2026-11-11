@@ -24,10 +24,9 @@ func (r *UsuarioSQL) FindById(ctx context.Context, id int32) (*logic.Usuario, er
 	}
 
 	return &logic.Usuario{
-		ID:         usuario.IDUsuario,
-		Nombre:     usuario.NombreUsuario,
-		Email:      usuario.Mail,
-		Contrasena: usuario.Contrasena,
+		ID:     usuario.IDUsuario,
+		Nombre: usuario.NombreUsuario,
+		Email:  usuario.Mail,
 	}, nil
 }
 
@@ -36,20 +35,23 @@ func NewUsuarioSQL(queries *dbsqlc.Queries) *UsuarioSQL {
 }
 
 func (r *UsuarioSQL) Create(ctx context.Context, nombre, email, contrasena string) (*logic.Usuario, error) {
+	hash, err := hashContrasena(contrasena)
+	if err != nil {
+		return nil, err
+	}
 	creado, err := r.queries.CreateUsuario(ctx, dbsqlc.CreateUsuarioParams{
-		NombreUsuario: nombre,
-		Mail:          email,
-		Contrasena:    contrasena,
+		NombreUsuario:  nombre,
+		Mail:           email,
+		ContrasenaHash: hash,
 	})
 	if err != nil {
 		return nil, errorPersistencia(err)
 	}
 
 	return &logic.Usuario{
-		ID:         creado.IDUsuario,
-		Nombre:     creado.NombreUsuario,
-		Email:      creado.Mail,
-		Contrasena: creado.Contrasena,
+		ID:     creado.IDUsuario,
+		Nombre: creado.NombreUsuario,
+		Email:  creado.Mail,
 	}, nil
 }
 func (r *UsuarioSQL) List(ctx context.Context) ([]*logic.Usuario, error) {
@@ -59,12 +61,11 @@ func (r *UsuarioSQL) List(ctx context.Context) ([]*logic.Usuario, error) {
 	}
 
 	var result []*logic.Usuario
-	for _, usuarios := range usuarios {
+	for _, usuario := range usuarios {
 		result = append(result, &logic.Usuario{
-			ID:         usuarios.IDUsuario,
-			Nombre:     usuarios.NombreUsuario,
-			Email:      usuarios.Mail,
-			Contrasena: usuarios.Contrasena,
+			ID:     usuario.IDUsuario,
+			Nombre: usuario.NombreUsuario,
+			Email:  usuario.Mail,
 		})
 	}
 
@@ -80,21 +81,24 @@ func (r *UsuarioSQL) Delete(ctx context.Context, id int32) error {
 }
 
 func (r *UsuarioSQL) Update(ctx context.Context, id int32, nombre, email, contrasena string) (*logic.Usuario, error) {
-	err := r.queries.UpdateUsuario(ctx, dbsqlc.UpdateUsuarioParams{
-		IDUsuario:     id,
-		NombreUsuario: nombre,
-		Mail:          email,
-		Contrasena:    contrasena,
+	hash, err := hashContrasena(contrasena)
+	if err != nil {
+		return nil, err
+	}
+	err = r.queries.UpdateUsuario(ctx, dbsqlc.UpdateUsuarioParams{
+		IDUsuario:      id,
+		NombreUsuario:  nombre,
+		Mail:           email,
+		ContrasenaHash: hash,
 	})
 	if err != nil {
 		return nil, errorPersistencia(err)
 	}
 
 	return &logic.Usuario{
-		ID:         id,
-		Nombre:     nombre,
-		Email:      email,
-		Contrasena: contrasena,
+		ID:     id,
+		Nombre: nombre,
+		Email:  email,
 	}, nil
 }
 

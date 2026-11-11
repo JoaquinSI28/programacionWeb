@@ -1,9 +1,16 @@
 services:
   sqlc:
-    image: sqlc/sqlc:latest
+    image: sqlc/sqlc:1.31.1
     volumes:
       - .:/src
     working_dir: /src
+    command: generate
+
+  templ:
+    image: ghcr.io/a-h/templ:v0.3.1100
+    volumes:
+      - .:/app
+    working_dir: /app
     command: generate
 
   hurl:
@@ -13,42 +20,48 @@ services:
     volumes:
       - ./requests.hurl:/tests/requests.hurl:ro
     command: ["--test", "/tests/requests.hurl"]
-    depends_on:
-      api:
-        condition: service_healthy
+
+  go-tests:
+    image: golang:1.26-alpine
+    profiles: [test]
+    network_mode: service:database
+    volumes:
+      - .:/src:ro
+    working_dir: /src
+    environment:
+      POSTGRES_DB: ${POSTGRES_DB:-prueba}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+    command: ["go", "test", "./...", "-v"]
 
   api:
     build:
       context: .
       dockerfile: Dockerfile
-    container_name: go-api
     ports:
-      - "8080:8080"
+      - "127.0.0.1:${APP_PORT:-8080}:8080"
     environment:
-      - DB_HOST=database
-      - DB_PORT=5432
-      - DB_USER=${POSTGRES_USER:-postgres}
-      - DB_PASSWORD=${POSTGRES_PASSWORD:-postgres}
-      - DB_NAME=${POSTGRES_DB:-prueba}
+      DB_HOST: database
+      DB_PORT: "5432"
+      DB_USER: ${POSTGRES_USER:-postgres}
+      DB_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
+      DB_NAME: ${POSTGRES_DB:-prueba}
     healthcheck:
-      test: ["CMD", "wget", "-q", "-T", "2", "-O", "/dev/null", "http://localhost:8080/"]
+      test: ["CMD", "wget", "-q", "-T", "2", "-O", "/dev/null", "http://localhost:8080/salud"]
       interval: 2s
       timeout: 3s
       retries: 30
       start_period: 5s
     depends_on:
-      sqlc:
-        condition: service_completed_successfully
       database:
         condition: service_healthy
 
   database:
     image: postgres:15
-    container_name: postgres-db
     environment:
-      - POSTGRES_DB=${POSTGRES_DB:-prueba}
-      - POSTGRES_USER=${POSTGRES_USER:-postgres}
-      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD:-postgres}
+      POSTGRES_DB: ${POSTGRES_DB:-prueba}
+      POSTGRES_USER: ${POSTGRES_USER:-postgres}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-postgres}
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -h 127.0.0.1 -U \"$${POSTGRES_USER}\" -d \"$${POSTGRES_DB}\""]
       interval: 2s
@@ -56,10 +69,10 @@ services:
       retries: 30
       start_period: 5s
     ports:
-      - "5432:5432"
+      - "127.0.0.1:${POSTGRES_PORT:-5432}:5432"
     volumes:
       - pgdata:/var/lib/postgresql/data
-      - ./db/schema/schema.sql:/docker-entrypoint-initdb.d/schema.sql
+      - ./db/schema/schema.sql:/docker-entrypoint-initdb.d/schema.sql:ro
 
 volumes:
   pgdata:

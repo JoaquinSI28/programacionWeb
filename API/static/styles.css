@@ -51,3 +51,6 @@ footer { max-width: 1160px; margin: auto; padding: 1.5rem 2rem; border-top: 1px 
 footer span { color: var(--muted); font: .8rem system-ui, sans-serif; }
 @media (max-width: 720px) { .header-content { align-items: start; flex-direction: column; gap: 1rem; padding: 1.2rem; } nav { gap: 1.2rem; } main { padding: 0 1.2rem 2rem; } .intro { padding: 2.5rem 0 2rem; } .workspace { grid-template-columns: 1fr; gap: 1.25rem; } .entity-card { padding: 1rem; } footer { padding: 1.2rem; } }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
+
+form.delete-form { padding: 0; margin: 0; border: 0; background: transparent; flex-shrink: 0; }
+form.delete-form button { width: auto; margin: 0; }
