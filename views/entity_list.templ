@@ -6,16 +6,13 @@ import (
 )
 
 templ DeleteForm(entity string, id int32, name string) {
-	<form class="delete-form" method="post" action={ templ.SafeURL("/" + entity + "/" + idString(id) + "/eliminar") }>
-		<button type="submit" class="delete-button" aria-label={ "Eliminar " + name }>Eliminar</button>
-	</form>
+ <button type="button" class="delete-button" hx-delete={ "/" + entity + "/" + idString(id) } hx-target="closest li" hx-swap="outerHTML" hx-disabled-elt="this" aria-label={ "Eliminar " + name }>Eliminar</button>
+ <div id={ entity + "-error-" + idString(id) } class="operation-error" aria-live="polite"></div>
 }
 
 templ LibroList(libros []*logic.Libro, autores map[int32]string, editoriales map[int32]string) {
 	<ul id="libros-list" class="entity-list" aria-label="Libros">
-		if len(libros) == 0 {
 			<li class="empty">Todavía no hay libros. Agregá el primero.</li>
-		}
 		for _, libro := range libros {
 			<li class="entity-card">
 				<div class="entity-info">
@@ -31,9 +28,7 @@ templ LibroList(libros []*logic.Libro, autores map[int32]string, editoriales map
 
 templ AutorList(autores []*logic.Autor) {
 	<ul id="autores-list" class="entity-list" aria-label="Autores">
-		if len(autores) == 0 {
 			<li class="empty">Todavía no hay autores. Sumá uno para empezar.</li>
-		}
 		for _, autor := range autores {
 			<li class="entity-card">
 				<div class="entity-info">
@@ -49,9 +44,7 @@ templ AutorList(autores []*logic.Autor) {
 
 templ EditorialList(editoriales []*logic.Editorial) {
 	<ul id="editoriales-list" class="entity-list" aria-label="Editoriales">
-		if len(editoriales) == 0 {
 			<li class="empty">Todavía no hay editoriales. Agregá una para tus libros.</li>
-		}
 		for _, editorial := range editoriales {
 			<li class="entity-card">
 				<div class="entity-info">
@@ -66,9 +59,7 @@ templ EditorialList(editoriales []*logic.Editorial) {
 
 templ UsuarioList(usuarios []*logic.Usuario) {
 	<ul id="usuarios-list" class="entity-list" aria-label="Usuarios">
-		if len(usuarios) == 0 {
 			<li class="empty">Todavía no hay usuarios registrados.</li>
-		}
 		for _, usuario := range usuarios {
 			<li class="entity-card">
 				<div class="entity-info">

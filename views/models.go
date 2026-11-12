@@ -1,6 +1,7 @@
 package views
 
 import (
+	"github.com/a-h/templ"
 	"strconv"
 
 	"bookfly.com/logic"
@@ -16,7 +17,6 @@ type PageData struct {
 	EditorNames map[int32]string
 	ActiveForm  string
 	Values      map[string]string
-	Error       string
 	Today       string
 }
 
@@ -34,4 +34,11 @@ func countText(count int) string {
 		return "1 registro"
 	}
 	return strconv.Itoa(count) + " registros"
+}
+
+func oobAttributes(enabled bool) templ.Attributes {
+	if enabled {
+		return templ.Attributes{"hx-swap-oob": "true"}
+	}
+	return templ.Attributes{}
 }

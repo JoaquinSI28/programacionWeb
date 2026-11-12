@@ -1,32 +1,16 @@
 package views
 
 
-templ FormError(data PageData, entity string) {
-	if data.ActiveForm == entity && data.Error != "" {
-		<p class="message error" role="alert">{ data.Error }</p>
-	}
-}
-
 templ LibroForm(data PageData) {
-	<form id="libros-form" action="/libros" method="post">
+	<form id="libros-form" action="/libros" method="post" hx-post="/libros" hx-target="#libros-list" hx-swap="outerHTML" hx-disabled-elt="find button">
+ <div id="libros-mensajes" aria-live="polite"></div>
 		<h3>Agregar un libro</h3>
-		@FormError(data, "libros")
 		<label for="libro-titulo">Título</label>
 		<input id="libro-titulo" name="titulo" required maxlength="255" value={ data.Value("libros", "titulo") }/>
 		<label for="libro-autor">Autor</label>
-		<select id="libro-autor" name="id_autor" required>
-			<option value="">Seleccioná un autor</option>
-			for _, autor := range data.Autores {
-				<option value={ idString(autor.IDAutor) } selected?={ data.Value("libros", "id_autor") == idString(autor.IDAutor) }>{ autor.Nombre }</option>
-			}
-		</select>
-		<label for="libro-editorial">Editorial</label>
-		<select id="libro-editorial" name="id_editorial" required>
-			<option value="">Seleccioná una editorial</option>
-			for _, editorial := range data.Editoriales {
-				<option value={ idString(editorial.IDEditorial) } selected?={ data.Value("libros", "id_editorial") == idString(editorial.IDEditorial) }>{ editorial.Nombre }</option>
-			}
-		</select>
+  @AutorSelect(data, false)
+  <label for="libro-editorial">Editorial</label>
+  @EditorialSelect(data, false)
 		<p class="field-hint">Si no aparecen opciones, agregalas en las secciones de abajo.</p>
 		<div class="form-row">
 			<div>
@@ -43,9 +27,9 @@ templ LibroForm(data PageData) {
 }
 
 templ AutorForm(data PageData) {
-	<form id="autores-form" action="/autores" method="post">
+	<form id="autores-form" action="/autores" method="post" hx-post="/autores" hx-target="#autores-list" hx-swap="outerHTML" hx-disabled-elt="find button">
+ <div id="autores-mensajes" aria-live="polite"></div>
 		<h3>Agregar un autor</h3>
-		@FormError(data, "autores")
 		<label for="autor-nombre">Nombre</label>
 		<input id="autor-nombre" name="nombre" required maxlength="255" value={ data.Value("autores", "nombre") }/>
 		<label for="autor-pais">País</label>
@@ -59,9 +43,9 @@ templ AutorForm(data PageData) {
 }
 
 templ EditorialForm(data PageData) {
-	<form id="editoriales-form" action="/editoriales" method="post">
+	<form id="editoriales-form" action="/editoriales" method="post" hx-post="/editoriales" hx-target="#editoriales-list" hx-swap="outerHTML" hx-disabled-elt="find button">
+ <div id="editoriales-mensajes" aria-live="polite"></div>
 		<h3>Agregar una editorial</h3>
-		@FormError(data, "editoriales")
 		<label for="editorial-nombre">Nombre</label>
 		<input id="editorial-nombre" name="nombre" required maxlength="255" value={ data.Value("editoriales", "nombre") }/>
 		<label for="editorial-sede">Sede</label>
@@ -71,9 +55,9 @@ templ EditorialForm(data PageData) {
 }
 
 templ UsuarioForm(data PageData) {
-	<form id="usuarios-form" action="/usuarios" method="post">
+	<form id="usuarios-form" action="/usuarios" method="post" hx-post="/usuarios" hx-target="#usuarios-list" hx-swap="outerHTML" hx-disabled-elt="find button">
+ <div id="usuarios-mensajes" aria-live="polite"></div>
 		<h3>Agregar un usuario</h3>
-		@FormError(data, "usuarios")
 		<label for="usuario-nombre">Nombre de usuario</label>
 		<input id="usuario-nombre" name="nombre" autocomplete="username" required maxlength="100" value={ data.Value("usuarios", "nombre") }/>
 		<label for="usuario-email">Correo electrónico</label>
@@ -82,4 +66,23 @@ templ UsuarioForm(data PageData) {
 		<input id="usuario-contrasena" name="contrasena" type="password" autocomplete="new-password" minlength="3" maxlength="255" required/>
 		<button type="submit">Agregar usuario</button>
 	</form>
+}
+
+
+templ AutorSelect(data PageData, oob bool) {
+ <select id="libro-autor" name="id_autor" required { oobAttributes(oob)... }>
+ <option value="">Seleccioná un autor</option>
+ for _, autor := range data.Autores {
+ <option value={ idString(autor.IDAutor) } selected?={ data.Value("libros", "id_autor") == idString(autor.IDAutor) }>{ autor.Nombre + " · " + autor.Pais + " · " + autor.FechaNacimiento.Format("2006-01-02") }</option>
+ }
+ </select>
+}
+
+templ EditorialSelect(data PageData, oob bool) {
+ <select id="libro-editorial" name="id_editorial" required { oobAttributes(oob)... }>
+ <option value="">Seleccioná una editorial</option>
+ for _, editorial := range data.Editoriales {
+ <option value={ idString(editorial.IDEditorial) } selected?={ data.Value("libros", "id_editorial") == idString(editorial.IDEditorial) }>{ editorial.Nombre + " · " + editorial.Sede }</option>
+ }
+ </select>
 }

@@ -19,7 +19,7 @@ import (
 )
 
 // Se ejecuta con make test sobre un PostgreSQL de prueba preparado por Compose.
-func TestHTMLFormsAndPRG(t *testing.T) {
+func TestHTMLFragments(t *testing.T) {
 	t.Chdir("..")
 	dsn := fmt.Sprintf("postgres://%s:%s@localhost:5432/%s?sslmode=disable",
 		envOrDefault("POSTGRES_USER", "postgres"), envOrDefault("POSTGRES_PASSWORD", "postgres"), envOrDefault("POSTGRES_DB", "prueba"))
@@ -78,10 +78,17 @@ func TestHTMLFormsAndPRG(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
+		if method == http.MethodDelete && want == http.StatusConflict {
+			parts := strings.Split(path, "/")
+			expected := "#" + parts[1] + "-error-" + parts[2]
+			if response.Header.Get("HX-Retarget") != expected || !strings.Contains(string(data), "tiene libros asociados") {
+				t.Fatal("el conflicto de borrado no indica el mensaje y su destino junto al registro")
+			}
+		}
 		if response.StatusCode != want {
 			t.Fatalf("%s %s: estado %d, esperado %d; %s", method, path, response.StatusCode, want, data)
 		}
-		if want == http.StatusSeeOther && response.Header.Get("Location") != "/" {
+		if want == http.StatusOK && response.Header.Get("Location") != "" {
 			t.Fatalf("redirección incorrecta: %q", response.Header.Get("Location"))
 		}
 		if want == http.StatusOK && path == "/" && !strings.HasPrefix(response.Header.Get("Content-Type"), "text/html") {
@@ -101,12 +108,15 @@ func TestHTMLFormsAndPRG(t *testing.T) {
 	if !strings.Contains(page, "<!doctype html>") && !strings.Contains(page, "<!DOCTYPE html>") {
 		t.Fatal("falta documento HTML completo")
 	}
-	if strings.Contains(page, "<script") || strings.Contains(page, "hx-post") {
-		t.Fatal("la página requiere JavaScript o HTMX")
+	if !strings.Contains(page, "htmx.org@2.0.11") || !strings.Contains(page, "hx-post") {
+		t.Fatal("falta la integración HTMX")
 	}
 	request(http.MethodGet, "/static/styles.css", "", "", http.StatusOK)
 	request(http.MethodGet, "/app.js", "", "", http.StatusNotFound)
-	post("/editoriales", url.Values{"nombre": {name}, "sede": {"Tandil"}}, http.StatusSeeOther)
+	fragment := post("/editoriales", url.Values{"nombre": {name}, "sede": {"Tandil"}}, http.StatusOK)
+	if strings.Contains(fragment, "<html") || !strings.Contains(fragment, "editoriales-list") {
+		t.Fatal("el alta no devolvió la lista parcial")
+	}
 	editoriales, err := queries.ListEditoriales(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -135,7 +145,7 @@ func TestHTMLFormsAndPRG(t *testing.T) {
 		t.Fatalf("recargar creó %d editoriales", count)
 	}
 
-	post("/autores", url.Values{"nombre": {authorName}, "pais": {"Argentina"}, "fecha_nacimiento": {"1980-01-15"}, "biografia": {"Biografía"}}, http.StatusSeeOther)
+	post("/autores", url.Values{"nombre": {authorName}, "pais": {"Argentina"}, "fecha_nacimiento": {"1980-01-15"}, "biografia": {"Biografía"}}, http.StatusOK)
 	autores, err := queries.ListAutores(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -154,7 +164,7 @@ func TestHTMLFormsAndPRG(t *testing.T) {
 		t.Fatal("falta el error de longitud o se devolvió la contraseña")
 	}
 	userForm.Set("contrasena", password)
-	post("/usuarios", userForm, http.StatusSeeOther)
+	post("/usuarios", userForm, http.StatusOK)
 	usuarios, err := queries.ListUsuarios(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -175,12 +185,12 @@ func TestHTMLFormsAndPRG(t *testing.T) {
 		t.Fatal("la contraseña no fue protegida")
 	}
 	page = post("/usuarios", userForm, http.StatusConflict)
-	if !strings.Contains(page, username) || strings.Contains(page, password) {
+	if !strings.Contains(page, "ya está registrado") || strings.Contains(page, password) {
 		t.Fatal("error de duplicado no preserva campos seguros o devuelve la contraseña")
 	}
 
 	bookForm := url.Values{"titulo": {title}, "id_autor": {strconv.Itoa(int(authorID))}, "id_editorial": {strconv.Itoa(int(editorialID))}, "cantidad_paginas": {"250"}, "fecha_lanzamiento": {"2020-01-15"}}
-	post("/libros", bookForm, http.StatusSeeOther)
+	post("/libros", bookForm, http.StatusOK)
 	libros, err := queries.ListLibros(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -197,7 +207,7 @@ func TestHTMLFormsAndPRG(t *testing.T) {
 	if !strings.Contains(page, title) || !strings.Contains(page, authorName) || strings.Contains(page, password) {
 		t.Fatal("listado incompleto o contraseña visible")
 	}
-	post(fmt.Sprintf("/autores/%d/eliminar", authorID), nil, http.StatusConflict)
+	request(http.MethodDelete, fmt.Sprintf("/autores/%d", authorID), "", "", http.StatusConflict)
 
 	t.Run("duplicados y fechas del catálogo", func(t *testing.T) {
 		autor := url.Values{"nombre": {strings.ToUpper(authorName)}, "pais": {"  argentina  "}, "fecha_nacimiento": {"1980-01-15"}, "biografia": {"Otra biografía"}}
@@ -214,16 +224,16 @@ func TestHTMLFormsAndPRG(t *testing.T) {
 		}
 		defer conn.Exec("DELETE FROM autor WHERE nombre = $1 AND fecha_nacimiento = $2", autor.Get("nombre"), hoy)
 		autor.Set("fecha_nacimiento", hoy.Format(time.DateOnly))
-		post("/autores", autor, http.StatusSeeOther)
+		post("/autores", autor, http.StatusOK)
 		editorial := url.Values{"nombre": {strings.ReplaceAll(strings.ToUpper(name), " ", "  ")}, "sede": {"tandil"}}
 		post("/editoriales", editorial, http.StatusConflict)
 		defer conn.Exec("DELETE FROM editorial WHERE nombre = $1 AND sede = $2", editorial.Get("nombre"), "Otra sede")
 		editorial.Set("sede", "Otra sede")
-		post("/editoriales", editorial, http.StatusSeeOther)
+		post("/editoriales", editorial, http.StatusOK)
 		bookForm.Set("cantidad_paginas", "251")
 		post("/libros", bookForm, http.StatusConflict)
 		bookForm.Set("fecha_lanzamiento", "2020-02-29")
-		post("/libros", bookForm, http.StatusSeeOther)
+		post("/libros", bookForm, http.StatusOK)
 		bookForm.Set("fecha_lanzamiento", "2020-01-15")
 		post("/usuarios", url.Values{"nombre": {strings.ToUpper(username)}, "email": {"otro" + username + "@example.com"}, "contrasena": {"clave"}}, http.StatusConflict)
 		post("/usuarios", url.Values{"nombre": {"otro" + username}, "email": {strings.ToUpper(userForm.Get("email"))}, "contrasena": {"clave"}}, http.StatusConflict)
@@ -237,6 +247,27 @@ func TestHTMLFormsAndPRG(t *testing.T) {
 	})
 	t.Run("validaciones del servidor", func(t *testing.T) {
 		post("/editoriales", url.Values{"nombre": {"   "}, "sede": {"Tandil"}}, http.StatusBadRequest)
+		bookForm.Set("fecha_lanzamiento", "1979-12-31")
+		if body := post("/libros", bookForm, http.StatusBadRequest); !strings.Contains(body, "5 años cumplidos") {
+			t.Fatal("falta el motivo de la cronología inválida")
+		}
+		if _, err := conn.Exec("UPDATE libro SET fecha_lanzamiento = DATE '1979-12-31' WHERE id_libro = $1", bookID); err == nil {
+			t.Fatal("la base permitió un libro anterior al nacimiento")
+		}
+		if _, err := conn.Exec("UPDATE autor SET fecha_nacimiento = DATE '2021-01-01' WHERE id_autor = $1", authorID); err == nil {
+			t.Fatal("la base permitió invalidar libros al cambiar el autor")
+		}
+		// Se rechazan el nacimiento y el día anterior al quinto cumpleaños.
+		bookForm.Set("fecha_lanzamiento", "1980-01-15")
+		post("/libros", bookForm, http.StatusBadRequest)
+		bookForm.Set("fecha_lanzamiento", "1985-01-14")
+		post("/libros", bookForm, http.StatusBadRequest)
+		bookForm.Set("fecha_lanzamiento", "1985-01-15")
+		post("/libros", bookForm, http.StatusOK)
+		if _, err := conn.Exec("DELETE FROM libro WHERE titulo = $1 AND fecha_lanzamiento = DATE '1985-01-15'", title); err != nil {
+			t.Fatal(err)
+		}
+		bookForm.Set("fecha_lanzamiento", "2020-01-15")
 		bookForm.Set("cantidad_paginas", "2147483648")
 		post("/libros", bookForm, http.StatusBadRequest)
 		bookForm.Set("cantidad_paginas", "250")
@@ -249,22 +280,22 @@ func TestHTMLFormsAndPRG(t *testing.T) {
 		request(http.MethodPost, "/editoriales", `{"nombre":"JSON"}`, "application/json", http.StatusBadRequest)
 		post("/editoriales", url.Values{"nombre": {strings.Repeat("x", 70<<10)}}, http.StatusBadRequest)
 	})
-	t.Run("rutas y borrado clásico", func(t *testing.T) {
-		request(http.MethodGet, fmt.Sprintf("/libros/%d/eliminar", bookID), "", "", http.StatusMethodNotAllowed)
-		post("/libros/no-es-id/eliminar", nil, http.StatusBadRequest)
-		post("/libros/2147483647/eliminar", nil, http.StatusNotFound)
+	t.Run("rutas y borrado HTMX", func(t *testing.T) {
+		request(http.MethodGet, fmt.Sprintf("/libros/%d", bookID), "", "", http.StatusMethodNotAllowed)
+		request(http.MethodDelete, "/libros/no-es-id", "", "", http.StatusBadRequest)
+		request(http.MethodDelete, "/libros/2147483647", "", "", http.StatusNotFound)
 		post("/desconocida", nil, http.StatusNotFound)
 		request(http.MethodGet, "/no-existe", "", "", http.StatusNotFound)
-		post(fmt.Sprintf("/libros/%d/eliminar", bookID), nil, http.StatusSeeOther)
+		request(http.MethodDelete, fmt.Sprintf("/libros/%d", bookID), "", "", http.StatusOK)
 		if _, err := queries.GetLibro(ctx, bookID); err != sql.ErrNoRows {
 			t.Fatalf("el libro no se eliminó: %v", err)
 		}
 		bookID = 0
-		post(fmt.Sprintf("/autores/%d/eliminar", authorID), nil, http.StatusSeeOther)
+		request(http.MethodDelete, fmt.Sprintf("/autores/%d", authorID), "", "", http.StatusOK)
 		authorID = 0
-		post(fmt.Sprintf("/editoriales/%d/eliminar", editorialID), nil, http.StatusSeeOther)
+		request(http.MethodDelete, fmt.Sprintf("/editoriales/%d", editorialID), "", "", http.StatusOK)
 		editorialID = 0
-		post(fmt.Sprintf("/usuarios/%d/eliminar", userID), nil, http.StatusSeeOther)
+		request(http.MethodDelete, fmt.Sprintf("/usuarios/%d", userID), "", "", http.StatusOK)
 		userID = 0
 	})
 }

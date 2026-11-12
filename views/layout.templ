@@ -7,9 +7,11 @@ templ Layout(title string) {
 			<meta charset="UTF-8"/>
 			<meta name="viewport" content="width=device-width, initial-scale=1.0"/>
 			<title>{ title }</title>
+ <meta name="htmx-config" content='{"responseHandling":[{"code":"204","swap":false},{"code":"[23]..","swap":true},{"code":"[45]..","swap":true,"error":true}],"timeout":15000}'/>
+ <script src="https://cdn.jsdelivr.net/npm/htmx.org@2.0.11/dist/htmx.min.js" integrity="sha384-2OatzQy1H+Zd/IIrjr1TcuDGqLXeHhbooAyJY1KdQMKnr4LZ22k31GBLdYKHmVjg" crossorigin="anonymous"></script>
 			<link rel="stylesheet" href="/static/styles.css"/>
 		</head>
-		<body>
+		<body hx-sync="this:queue all">
 			<a class="skip-link" href="#biblioteca">Ir a mi biblioteca</a>
 			<header class="site-header">
 				<div class="header-content">
@@ -22,7 +24,10 @@ templ Layout(title string) {
 					</nav>
 				</div>
 			</header>
-			<main>{ children... }</main>
+			<main>
+ <div id="mensajes" role="status" aria-live="polite"></div>
+ <div id="estado" hidden hx-get="/estado" hx-trigger="catalogoActualizado from:body" hx-include="#libro-autor, #libro-editorial"></div>
+ { children... }</main>
 			<footer>Bookfly <span>Un lugar para cada libro.</span></footer>
 		</body>
 	</html>

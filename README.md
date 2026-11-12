@@ -3,7 +3,7 @@ Aquí se realizaran entregas de trabajos prácticos para la materia
 Programación Web de la Universidad Nacional de la Provincia de Buenos Aires
 del curso 2026.
 
-**Para ejecutar la entrega actual**, ver [Ejecución del TP5](#ejecución-del-tp5).
+**Para ejecutar la entrega actual**, ver [Ejecución del TP6](#ejecución-del-tp6).
 
 # Dominio
 Un registro de libros leídos será el tema principal de la app.
@@ -206,3 +206,24 @@ make test-all
 ```
 
 Las pruebas crean y eliminan el volumen del proyecto. Los componentes de la vista, las rutas y las verificaciones de la entrega están documentados en [docs/TP5.md](docs/TP5.md).
+
+
+# Ejecución del TP6
+
+La rama `tp6` continúa el TP5 terminado en `f012f4f`. HTMX envía los formularios y actualiza las listas con fragmentos HTML generados por templ. El servidor devuelve HTTP 200 en las altas y una respuesta vacía 200 después del DELETE de una entidad.
+
+Con Docker iniciado, Docker Compose y make instalados, ejecutar desde la raíz del repositorio:
+
+```bash
+make run-app
+```
+
+El comando genera y compila dentro de Docker, espera a PostgreSQL y muestra **Bookfly disponible en** con el enlace local. Al presionar Ctrl+C se eliminan los contenedores y el volumen del proyecto `bookfly-tp6`, incluidos sus datos. Docker elige un puerto libre. Para conservar datos entre sesiones, usar `make up`, consultar la dirección con `docker compose -p bookfly-tp6 port api 8080` y detener con `make stop`.
+
+Crear un autor y una editorial, elegirlos al agregar un libro y comprobar que la lista se actualiza sin recargar la página. Los botones Eliminar usan DELETE y retiran el registro de la vista. Los errores se muestran en la página y conservan los datos del formulario. Las reglas de fechas, referencias, contraseñas y duplicados se conservan del TP5.
+
+HTMX 2.0.11 se carga mediante una etiqueta script remota con versión e integridad fijadas. Se necesita conexión al CDN para descargar esa biblioteca. La entrega contiene componentes templ, Go y CSS. Las pruebas de Go y Hurl se ejecutan con `make test-all`.
+
+Ver [docs/TP6.md](docs/TP6.md) para las rutas, las fuentes de la materia y las verificaciones.
+
+El autor debe tener al menos 5 años cumplidos al lanzamiento del libro. Esta regla se comprueba al crear o modificar libros y al cambiar el nacimiento de un autor que tiene libros asociados.

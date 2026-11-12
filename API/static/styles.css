@@ -54,3 +54,9 @@ footer span { color: var(--muted); font: .8rem system-ui, sans-serif; }
 
 form.delete-form { padding: 0; margin: 0; border: 0; background: transparent; flex-shrink: 0; }
 form.delete-form button { width: auto; margin: 0; }
+
+.entity-list:has(.entity-card) > .empty { display: none; }
+
+.entity-card { flex-wrap: wrap; }
+.operation-error { flex-basis: 100%; }
+.operation-error:empty { display: none; }

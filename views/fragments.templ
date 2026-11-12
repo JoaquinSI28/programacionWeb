@@ -1,0 +1,34 @@
+package views
+
+templ OperationMessage(message string) {
+ if message != "" {
+ <p class="message error" role="alert">{ message }</p>
+ }
+}
+
+templ EntityList(entity string, data PageData) {
+ switch entity {
+ case "libros":
+ @LibroList(data.Libros, data.AutorNames, data.EditorNames)
+ case "autores":
+ @AutorList(data.Autores)
+ case "editoriales":
+ @EditorialList(data.Editoriales)
+ case "usuarios":
+ @UsuarioList(data.Usuarios)
+ }
+}
+
+templ CatalogState(data PageData) {
+ <span id="libros-count" class="count" hx-swap-oob="true">{ countText(len(data.Libros)) }</span>
+ <span id="autores-count" class="count" hx-swap-oob="true">{ countText(len(data.Autores)) }</span>
+ <span id="editoriales-count" class="count" hx-swap-oob="true">{ countText(len(data.Editoriales)) }</span>
+ <span id="usuarios-count" class="count" hx-swap-oob="true">{ countText(len(data.Usuarios)) }</span>
+ @AutorSelect(data, true)
+ @EditorialSelect(data, true)
+ <div id="mensajes" role="status" aria-live="polite" hx-swap-oob="true"></div>
+ <div id="libros-mensajes" aria-live="polite" hx-swap-oob="true"></div>
+ <div id="autores-mensajes" aria-live="polite" hx-swap-oob="true"></div>
+ <div id="editoriales-mensajes" aria-live="polite" hx-swap-oob="true"></div>
+ <div id="usuarios-mensajes" aria-live="polite" hx-swap-oob="true"></div>
+}

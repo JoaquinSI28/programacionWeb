@@ -1,5 +1,5 @@
 -include .env
-COMPOSE_PROJECT_NAME ?= bookfly-tp5
+COMPOSE_PROJECT_NAME ?= bookfly-tp6
 export COMPOSE_PROJECT_NAME POSTGRES_DB POSTGRES_USER POSTGRES_PASSWORD APP_PORT
 
 .PHONY: generate up up-api up-db run-app test test-hurl test-all down stop

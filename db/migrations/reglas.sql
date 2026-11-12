@@ -27,3 +27,34 @@ BEGIN
     END IF;
 END
 $$;
+
+CREATE OR REPLACE FUNCTION bookfly_validar_cronologia_libro() RETURNS trigger
+LANGUAGE plpgsql AS $$
+DECLARE nacimiento date;
+BEGIN
+    -- Se bloquea el autor para coordinar altas con cambios de su nacimiento.
+    SELECT fecha_nacimiento INTO nacimiento FROM autor WHERE id_autor = NEW.id_autor FOR UPDATE;
+    IF NEW.fecha_lanzamiento < (nacimiento + INTERVAL '5 years')::date THEN
+        RAISE EXCEPTION 'El autor debe tener al menos 5 años cumplidos en la fecha de lanzamiento'
+            USING ERRCODE = '23514', CONSTRAINT = 'libro_cronologia_autor';
+    END IF;
+    RETURN NEW;
+END
+$$;
+CREATE OR REPLACE TRIGGER libro_cronologia_autor
+BEFORE INSERT OR UPDATE OF id_autor, fecha_lanzamiento ON libro
+FOR EACH ROW EXECUTE FUNCTION bookfly_validar_cronologia_libro();
+
+CREATE OR REPLACE FUNCTION bookfly_validar_nacimiento_autor() RETURNS trigger
+LANGUAGE plpgsql AS $$
+BEGIN
+    IF EXISTS (SELECT FROM libro WHERE id_autor = NEW.id_autor AND fecha_lanzamiento < (NEW.fecha_nacimiento + INTERVAL '5 years')::date) THEN
+        RAISE EXCEPTION 'El autor debe tener al menos 5 años cumplidos al lanzamiento de todos sus libros'
+            USING ERRCODE = '23514', CONSTRAINT = 'autor_cronologia_libros';
+    END IF;
+    RETURN NEW;
+END
+$$;
+CREATE OR REPLACE TRIGGER autor_cronologia_libros
+BEFORE UPDATE OF fecha_nacimiento ON autor
+FOR EACH ROW EXECUTE FUNCTION bookfly_validar_nacimiento_autor();

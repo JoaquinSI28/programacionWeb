@@ -34,6 +34,7 @@ func newWebHandler(queries *dbsqlc.Queries) http.Handler {
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", app.index)
+	mux.HandleFunc("GET /estado", app.estado)
 	mux.HandleFunc("GET /salud", func(w http.ResponseWriter, r *http.Request) {
 		if _, err := queries.ComprobarConexion(r.Context()); err != nil {
 			http.Error(w, "Base no disponible", http.StatusServiceUnavailable)
@@ -45,7 +46,7 @@ func newWebHandler(queries *dbsqlc.Queries) http.Handler {
 		mux.HandleFunc("POST /"+entity, func(w http.ResponseWriter, r *http.Request) {
 			app.create(w, r, entity)
 		})
-		mux.HandleFunc("POST /"+entity+"/{id}/eliminar", func(w http.ResponseWriter, r *http.Request) {
+		mux.HandleFunc("DELETE /"+entity+"/{id}", func(w http.ResponseWriter, r *http.Request) {
 			app.delete(w, r, entity)
 		})
 	}
@@ -122,20 +123,18 @@ func parseForm(w http.ResponseWriter, r *http.Request) error {
 }
 
 func (app *webApp) formError(w http.ResponseWriter, r *http.Request, entity string, values url.Values, status int, message string) {
-	data, err := app.pageData(r.Context())
-	if err != nil {
-		log.Printf("Error al recuperar datos del formulario: %v", err)
-		renderHTML(w, r, http.StatusInternalServerError, views.ErrorPage("No se pudo consultar la biblioteca. Intentá nuevamente."))
-		return
+	target := "#mensajes"
+	if entity != "" {
+		target = "#" + entity + "-mensajes"
 	}
-	data.ActiveForm, data.Error = entity, message
-	data.Values = make(map[string]string)
-	for name, value := range values {
-		if name != "contrasena" && len(value) > 0 {
-			data.Values[name] = value[0]
+	if r.Method == http.MethodDelete {
+		if id, err := positiveNumber(r.PathValue("id"), "El ID"); err == nil {
+			target = fmt.Sprintf("#%s-error-%d", entity, id)
 		}
 	}
-	renderHTML(w, r, status, views.IndexPage(data))
+	w.Header().Set("HX-Retarget", target)
+	w.Header().Set("HX-Reswap", "innerHTML")
+	renderHTML(w, r, status, views.OperationMessage(message))
 }
 
 func classifyError(err error, entity string) (int, string) {
@@ -212,8 +211,13 @@ func (app *webApp) create(w http.ResponseWriter, r *http.Request, entity string)
 		app.formError(w, r, entity, values, status, message)
 		return
 	}
-	// PRG: el navegador confirma el POST y vuelve a pedir la página por GET.
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	data, err := app.pageData(r.Context())
+	if err != nil {
+		app.formError(w, r, entity, nil, http.StatusInternalServerError, "El registro se guardó, pero no se pudo actualizar la lista. Recargá la página para comprobarlo.")
+		return
+	}
+	w.Header().Set("HX-Trigger", "catalogoActualizado")
+	renderHTML(w, r, http.StatusOK, views.EntityList(entity, data))
 }
 
 func (app *webApp) createLibro(ctx context.Context, values url.Values) error {
@@ -233,11 +237,11 @@ func (app *webApp) createLibro(ctx context.Context, values url.Values) error {
 	if err != nil {
 		return err
 	}
-	_, err = logic.CreateLibro(ctx, app.libros, autor, values.Get("titulo"), editorial, date, pages)
+	_, err = logic.CreateLibro(ctx, app.libros, app.autores, autor, values.Get("titulo"), editorial, date, pages)
 	return err
 }
 
-// Se conserva el borrado del TP4 mediante un formulario clásico; no usa JavaScript.
+// La respuesta vacía permite que HTMX retire únicamente el elemento borrado.
 func (app *webApp) delete(w http.ResponseWriter, r *http.Request, entity string) {
 	id, err := positiveNumber(r.PathValue("id"), "El ID")
 	if err == nil {
@@ -254,8 +258,31 @@ func (app *webApp) delete(w http.ResponseWriter, r *http.Request, entity string)
 	}
 	if err != nil {
 		status, message := classifyError(err, entity)
+		if errors.Is(err, logic.ErrReferencia) {
+			switch entity {
+			case "autores":
+				message = "No se puede eliminar este autor porque tiene libros asociados. Eliminá primero esos libros."
+			case "editoriales":
+				message = "No se puede eliminar esta editorial porque tiene libros asociados. Eliminá primero esos libros."
+			default:
+				message = "No se puede eliminar este registro porque tiene lecturas asociadas."
+			}
+		}
 		app.formError(w, r, entity, nil, status, message)
 		return
 	}
-	http.Redirect(w, r, "/", http.StatusSeeOther)
+	w.Header().Set("HX-Trigger", "catalogoActualizado")
+	w.WriteHeader(http.StatusOK)
+}
+
+// Refresca contadores y referencias sin reemplazar los borradores de formularios.
+func (app *webApp) estado(w http.ResponseWriter, r *http.Request) {
+	data, err := app.pageData(r.Context())
+	if err != nil {
+		app.formError(w, r, "", nil, http.StatusInternalServerError, "No se pudo actualizar el estado de la biblioteca.")
+		return
+	}
+	data.ActiveForm = "libros"
+	data.Values = map[string]string{"id_autor": r.URL.Query().Get("id_autor"), "id_editorial": r.URL.Query().Get("id_editorial")}
+	renderHTML(w, r, http.StatusOK, views.CatalogState(data))
 }

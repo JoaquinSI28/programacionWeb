@@ -47,7 +47,7 @@ func validateIDAutor(idAutor int32) error {
 	return nil
 }
 
-func CreateLibro(ctx context.Context, repo LibroRepository, idAutor int32, titulo string, idEditorial int32, fechaLanzamiento Date, cantidadPaginas int32) (*Libro, error) {
+func CreateLibro(ctx context.Context, repo LibroRepository, autores AutorRepository, idAutor int32, titulo string, idEditorial int32, fechaLanzamiento Date, cantidadPaginas int32) (*Libro, error) {
 	if err := validateTitulo(titulo); err != nil {
 		return nil, fmt.Errorf("error al validar título: %w", err)
 	}
@@ -64,10 +64,13 @@ func CreateLibro(ctx context.Context, repo LibroRepository, idAutor int32, titul
 		return nil, fmt.Errorf("error al validar cantidad de páginas: %w", err)
 	}
 
+	if err := validarCronologiaLibro(ctx, autores, idAutor, fechaLanzamiento); err != nil {
+		return nil, err
+	}
 	return repo.Create(ctx, idAutor, titulo, idEditorial, fechaLanzamiento, cantidadPaginas)
 }
 
-func UpdateLibro(ctx context.Context, repo LibroRepository, id int32, idAutor int32, titulo string, idEditorial int32, fechaLanzamiento Date, cantidadPaginas int32) (*Libro, error) {
+func UpdateLibro(ctx context.Context, repo LibroRepository, autores AutorRepository, id int32, idAutor int32, titulo string, idEditorial int32, fechaLanzamiento Date, cantidadPaginas int32) (*Libro, error) {
 	if err := validateTitulo(titulo); err != nil {
 		return nil, fmt.Errorf("error al validar título: %w", err)
 	}
@@ -88,6 +91,9 @@ func UpdateLibro(ctx context.Context, repo LibroRepository, id int32, idAutor in
 		return nil, err
 	}
 
+	if err := validarCronologiaLibro(ctx, autores, idAutor, fechaLanzamiento); err != nil {
+		return nil, err
+	}
 	return repo.Update(ctx, id, idAutor, titulo, idEditorial, fechaLanzamiento, cantidadPaginas)
 }
 
@@ -115,6 +121,26 @@ func DeleteLibro(ctx context.Context, repo LibroRepository, id int32) error {
 	err := repo.Delete(ctx, id)
 	if err != nil {
 		return fmt.Errorf("error al eliminar libro: %w", err)
+	}
+	return nil
+}
+
+func validarCronologiaLibro(ctx context.Context, autores AutorRepository, idAutor int32, lanzamiento Date) error {
+	autor, err := autores.FindById(ctx, idAutor)
+	if err != nil {
+		if errors.Is(err, ErrAutorNoEncontrado) {
+			return ErrReferencia
+		}
+		return err
+	}
+	minima := autor.FechaNacimiento.AddDate(5, 0, 0)
+	// Para nacimientos del 29 de febrero, el aniversario en años no bisiestos
+	// se considera el último día de febrero, igual que el intervalo de PostgreSQL.
+	if autor.FechaNacimiento.Month() == time.February && autor.FechaNacimiento.Day() == 29 && minima.Month() == time.March {
+		minima = minima.AddDate(0, 0, -1)
+	}
+	if lanzamiento.Format("2006-01-02") < minima.Format("2006-01-02") {
+		return &ErrorValidacion{Mensaje: "El autor debe tener al menos 5 años cumplidos en la fecha de lanzamiento"}
 	}
 	return nil
 }
