@@ -1,16 +1,16 @@
 package views
 
+import "bookfly.com/logic"
 
 templ LibroForm(data PageData) {
-	<form id="libros-form" action="/libros" method="post" hx-post="/libros" hx-target="#libros-list" hx-swap="outerHTML" hx-disabled-elt="find button">
- <div id="libros-mensajes" aria-live="polite"></div>
+	<form id="libros-form" action="/libros" method="post" hx-post="/libros" hx-target="#libros-list" hx-swap="outerHTML">
 		<h3>Agregar un libro</h3>
 		<label for="libro-titulo">Título</label>
 		<input id="libro-titulo" name="titulo" required maxlength="255" value={ data.Value("libros", "titulo") }/>
 		<label for="libro-autor">Autor</label>
-  @AutorSelect(data, false)
-  <label for="libro-editorial">Editorial</label>
-  @EditorialSelect(data, false)
+		@AutorSelect(data)
+		<label for="libro-editorial">Editorial</label>
+		@EditorialSelect(data)
 		<p class="field-hint">Si no aparecen opciones, agregalas en las secciones de abajo.</p>
 		<div class="form-row">
 			<div>
@@ -27,8 +27,7 @@ templ LibroForm(data PageData) {
 }
 
 templ AutorForm(data PageData) {
-	<form id="autores-form" action="/autores" method="post" hx-post="/autores" hx-target="#autores-list" hx-swap="outerHTML" hx-disabled-elt="find button">
- <div id="autores-mensajes" aria-live="polite"></div>
+	<form id="autores-form" action="/autores" method="post" hx-post="/autores" hx-target="#autores-list" hx-swap="outerHTML">
 		<h3>Agregar un autor</h3>
 		<label for="autor-nombre">Nombre</label>
 		<input id="autor-nombre" name="nombre" required maxlength="255" value={ data.Value("autores", "nombre") }/>
@@ -43,8 +42,7 @@ templ AutorForm(data PageData) {
 }
 
 templ EditorialForm(data PageData) {
-	<form id="editoriales-form" action="/editoriales" method="post" hx-post="/editoriales" hx-target="#editoriales-list" hx-swap="outerHTML" hx-disabled-elt="find button">
- <div id="editoriales-mensajes" aria-live="polite"></div>
+	<form id="editoriales-form" action="/editoriales" method="post" hx-post="/editoriales" hx-target="#editoriales-list" hx-swap="outerHTML">
 		<h3>Agregar una editorial</h3>
 		<label for="editorial-nombre">Nombre</label>
 		<input id="editorial-nombre" name="nombre" required maxlength="255" value={ data.Value("editoriales", "nombre") }/>
@@ -55,8 +53,7 @@ templ EditorialForm(data PageData) {
 }
 
 templ UsuarioForm(data PageData) {
-	<form id="usuarios-form" action="/usuarios" method="post" hx-post="/usuarios" hx-target="#usuarios-list" hx-swap="outerHTML" hx-disabled-elt="find button">
- <div id="usuarios-mensajes" aria-live="polite"></div>
+	<form id="usuarios-form" action="/usuarios" method="post" hx-post="/usuarios" hx-target="#usuarios-list" hx-swap="outerHTML">
 		<h3>Agregar un usuario</h3>
 		<label for="usuario-nombre">Nombre de usuario</label>
 		<input id="usuario-nombre" name="nombre" autocomplete="username" required maxlength="100" value={ data.Value("usuarios", "nombre") }/>
@@ -68,21 +65,40 @@ templ UsuarioForm(data PageData) {
 	</form>
 }
 
-
-templ AutorSelect(data PageData, oob bool) {
- <select id="libro-autor" name="id_autor" required { oobAttributes(oob)... }>
- <option value="">Seleccioná un autor</option>
- for _, autor := range data.Autores {
- <option value={ idString(autor.IDAutor) } selected?={ data.Value("libros", "id_autor") == idString(autor.IDAutor) }>{ autor.Nombre + " · " + autor.Pais + " · " + autor.FechaNacimiento.Format("2006-01-02") }</option>
- }
- </select>
+templ autorSelectOptions(autores []*logic.Autor, selected string) {
+	<option value="">Seleccioná un autor</option>
+	for _, autor := range autores {
+		<option value={ idString(autor.IDAutor) } selected?={ selected == idString(autor.IDAutor) }>{ autor.Nombre + " · " + autor.Pais + " · " + autor.FechaNacimiento.Format("2006-01-02") }</option>
+	}
 }
 
-templ EditorialSelect(data PageData, oob bool) {
- <select id="libro-editorial" name="id_editorial" required { oobAttributes(oob)... }>
- <option value="">Seleccioná una editorial</option>
- for _, editorial := range data.Editoriales {
- <option value={ idString(editorial.IDEditorial) } selected?={ data.Value("libros", "id_editorial") == idString(editorial.IDEditorial) }>{ editorial.Nombre + " · " + editorial.Sede }</option>
- }
- </select>
+templ AutorSelect(data PageData) {
+	<select id="libro-autor" name="id_autor" required>
+		@autorSelectOptions(data.Autores, data.Value("libros", "id_autor"))
+	</select>
+}
+
+templ AutorSelectOOB(data PageData) {
+	<select id="libro-autor" name="id_autor" required hx-swap-oob="true">
+		@autorSelectOptions(data.Autores, "")
+	</select>
+}
+
+templ editorialSelectOptions(editoriales []*logic.Editorial, selected string) {
+	<option value="">Seleccioná una editorial</option>
+	for _, editorial := range editoriales {
+		<option value={ idString(editorial.IDEditorial) } selected?={ selected == idString(editorial.IDEditorial) }>{ editorial.Nombre + " · " + editorial.Sede }</option>
+	}
+}
+
+templ EditorialSelect(data PageData) {
+	<select id="libro-editorial" name="id_editorial" required>
+		@editorialSelectOptions(data.Editoriales, data.Value("libros", "id_editorial"))
+	</select>
+}
+
+templ EditorialSelectOOB(data PageData) {
+	<select id="libro-editorial" name="id_editorial" required hx-swap-oob="true">
+		@editorialSelectOptions(data.Editoriales, "")
+	</select>
 }

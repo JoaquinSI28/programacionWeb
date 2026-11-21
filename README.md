@@ -205,7 +205,7 @@ Desde esta rama, `make test` ejecuta las pruebas de Go con PostgreSQL y `make te
 make test-all
 ```
 
-Las pruebas crean y eliminan el volumen del proyecto. Los componentes de la vista, las rutas y las verificaciones de la entrega están documentados en [docs/TP5.md](docs/TP5.md).
+Las pruebas crean y eliminan el volumen del proyecto.
 
 
 # Ejecución del TP6
@@ -223,7 +223,5 @@ El comando genera y compila dentro de Docker, espera a PostgreSQL y muestra **Bo
 Crear un autor y una editorial, elegirlos al agregar un libro y comprobar que la lista se actualiza sin recargar la página. Los botones Eliminar usan DELETE y retiran el registro de la vista. Los errores se muestran en la página y conservan los datos del formulario. Las reglas de fechas, referencias, contraseñas y duplicados se conservan del TP5.
 
 HTMX 2.0.11 se carga mediante una etiqueta script remota con versión e integridad fijadas. Se necesita conexión al CDN para descargar esa biblioteca. La entrega contiene componentes templ, Go y CSS. Las pruebas de Go y Hurl se ejecutan con `make test-all`.
-
-Ver [docs/TP6.md](docs/TP6.md) para las rutas, las fuentes de la materia y las verificaciones.
 
 El autor debe tener al menos 5 años cumplidos al lanzamiento del libro. Esta regla se comprueba al crear o modificar libros y al cambiar el nacimiento de un autor que tiene libros asociados.

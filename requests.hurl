@@ -12,7 +12,8 @@ nombre: Editorial Hurl TP5
 sede: Tandil
 HTTP 200
 [Asserts]
-header "HX-Trigger" == "catalogoActualizado"
+body contains "editoriales-list"
+body contains "editoriales-form-box"
 
 POST http://localhost:8080/autores
 [Form]
@@ -22,7 +23,8 @@ fecha_nacimiento: 1980-01-15
 biografia: Autor de prueba
 HTTP 200
 [Asserts]
-header "HX-Trigger" == "catalogoActualizado"
+body contains "autores-list"
+body contains "autores-form-box"
 
 POST http://localhost:8080/usuarios
 [Form]
@@ -31,7 +33,8 @@ email: lector_hurl_tp5@example.com
 contrasena: clave_hurl_tp5
 HTTP 200
 [Asserts]
-header "HX-Trigger" == "catalogoActualizado"
+body contains "usuarios-list"
+body contains "usuarios-form-box"
 
 GET http://localhost:8080/
 HTTP 200
@@ -55,7 +58,8 @@ fecha_lanzamiento: 2020-01-15
 cantidad_paginas: 250
 HTTP 200
 [Asserts]
-header "HX-Trigger" == "catalogoActualizado"
+body contains "libros-list"
+body contains "libros-form-box"
 
 GET http://localhost:8080/
 HTTP 200

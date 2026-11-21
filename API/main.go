@@ -9,7 +9,6 @@ import (
 	"os"
 	"time"
 
-	"bookfly.com/db/migrations"
 	dbsqlc "bookfly.com/db/sqlc"
 	"bookfly.com/repository"
 	_ "github.com/lib/pq"
@@ -38,9 +37,6 @@ func main() {
 
 	if err := repository.MigrarContrasenas(context.Background(), dbConn); err != nil {
 		log.Fatalf("Error al preparar usuarios: %v", err)
-	}
-	if err := migrations.AplicarReglas(context.Background(), dbConn); err != nil {
-		log.Fatalf("Error al aplicar las reglas del catálogo: %v", err)
 	}
 	queries := dbsqlc.New(dbConn)
 

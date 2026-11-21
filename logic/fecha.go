@@ -1,6 +1,7 @@
 package logic
 
 import (
+	"strings"
 	"time"
 	_ "time/tzdata"
 )
@@ -23,4 +24,18 @@ func validarFecha(fecha Date, campo string) error {
 		return &ErrorValidacion{Mensaje: campo + " no puede ser futura"}
 	}
 	return nil
+}
+
+func normalizarClave(valor string) string {
+	return strings.ToLower(strings.Join(strings.Fields(valor), " "))
+}
+
+func fechaMinimaPublicacion(nacimiento Date) Date {
+	minima := nacimiento.AddDate(5, 0, 0)
+	// Para nacimientos del 29 de febrero, el aniversario en años no bisiestos
+	// se considera el último día de febrero.
+	if nacimiento.Month() == time.February && nacimiento.Day() == 29 && minima.Month() == time.March {
+		minima = minima.AddDate(0, 0, -1)
+	}
+	return minima
 }

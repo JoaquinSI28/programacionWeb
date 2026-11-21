@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"strings"
 	"time"
+	"unicode/utf8"
 )
 
 // Date represents a calendar date.
@@ -25,6 +26,9 @@ type Libro struct {
 func validateTitulo(titulo string) error {
 	if strings.TrimSpace(titulo) == "" {
 		return &ErrorValidacion{Mensaje: "El título no puede estar vacío"}
+	}
+	if utf8.RuneCountInString(titulo) > 255 {
+		return &ErrorValidacion{Mensaje: "El texto supera la longitud permitida para el campo."}
 	}
 	return nil
 }
@@ -47,7 +51,7 @@ func validateIDAutor(idAutor int32) error {
 	return nil
 }
 
-func CreateLibro(ctx context.Context, repo LibroRepository, autores AutorRepository, idAutor int32, titulo string, idEditorial int32, fechaLanzamiento Date, cantidadPaginas int32) (*Libro, error) {
+func CreateLibro(ctx context.Context, repo LibroRepository, autores AutorRepository, editoriales EditorialRepository, idAutor int32, titulo string, idEditorial int32, fechaLanzamiento Date, cantidadPaginas int32) (*Libro, error) {
 	if err := validateTitulo(titulo); err != nil {
 		return nil, fmt.Errorf("error al validar título: %w", err)
 	}
@@ -64,13 +68,16 @@ func CreateLibro(ctx context.Context, repo LibroRepository, autores AutorReposit
 		return nil, fmt.Errorf("error al validar cantidad de páginas: %w", err)
 	}
 
-	if err := validarCronologiaLibro(ctx, autores, idAutor, fechaLanzamiento); err != nil {
+	if err := validarCronologiaLibro(ctx, autores, editoriales, idAutor, idEditorial, fechaLanzamiento); err != nil {
+		return nil, err
+	}
+	if err := validarLibroDuplicado(ctx, repo, 0, idAutor, idEditorial, titulo, fechaLanzamiento); err != nil {
 		return nil, err
 	}
 	return repo.Create(ctx, idAutor, titulo, idEditorial, fechaLanzamiento, cantidadPaginas)
 }
 
-func UpdateLibro(ctx context.Context, repo LibroRepository, autores AutorRepository, id int32, idAutor int32, titulo string, idEditorial int32, fechaLanzamiento Date, cantidadPaginas int32) (*Libro, error) {
+func UpdateLibro(ctx context.Context, repo LibroRepository, autores AutorRepository, editoriales EditorialRepository, id int32, idAutor int32, titulo string, idEditorial int32, fechaLanzamiento Date, cantidadPaginas int32) (*Libro, error) {
 	if err := validateTitulo(titulo); err != nil {
 		return nil, fmt.Errorf("error al validar título: %w", err)
 	}
@@ -91,7 +98,10 @@ func UpdateLibro(ctx context.Context, repo LibroRepository, autores AutorReposit
 		return nil, err
 	}
 
-	if err := validarCronologiaLibro(ctx, autores, idAutor, fechaLanzamiento); err != nil {
+	if err := validarCronologiaLibro(ctx, autores, editoriales, idAutor, idEditorial, fechaLanzamiento); err != nil {
+		return nil, err
+	}
+	if err := validarLibroDuplicado(ctx, repo, id, idAutor, idEditorial, titulo, fechaLanzamiento); err != nil {
 		return nil, err
 	}
 	return repo.Update(ctx, id, idAutor, titulo, idEditorial, fechaLanzamiento, cantidadPaginas)
@@ -125,7 +135,7 @@ func DeleteLibro(ctx context.Context, repo LibroRepository, id int32) error {
 	return nil
 }
 
-func validarCronologiaLibro(ctx context.Context, autores AutorRepository, idAutor int32, lanzamiento Date) error {
+func validarCronologiaLibro(ctx context.Context, autores AutorRepository, editoriales EditorialRepository, idAutor, idEditorial int32, lanzamiento Date) error {
 	autor, err := autores.FindById(ctx, idAutor)
 	if err != nil {
 		if errors.Is(err, ErrAutorNoEncontrado) {
@@ -133,14 +143,36 @@ func validarCronologiaLibro(ctx context.Context, autores AutorRepository, idAuto
 		}
 		return err
 	}
-	minima := autor.FechaNacimiento.AddDate(5, 0, 0)
-	// Para nacimientos del 29 de febrero, el aniversario en años no bisiestos
-	// se considera el último día de febrero, igual que el intervalo de PostgreSQL.
-	if autor.FechaNacimiento.Month() == time.February && autor.FechaNacimiento.Day() == 29 && minima.Month() == time.March {
-		minima = minima.AddDate(0, 0, -1)
+	if editoriales != nil {
+		if _, err := editoriales.FindById(ctx, idEditorial); err != nil {
+			if errors.Is(err, ErrEditorialNoEncontrada) {
+				return ErrReferencia
+			}
+			return err
+		}
 	}
-	if lanzamiento.Format("2006-01-02") < minima.Format("2006-01-02") {
+	minima := fechaMinimaPublicacion(autor.FechaNacimiento)
+	if lanzamiento.Format(time.DateOnly) < minima.Format(time.DateOnly) {
 		return &ErrorValidacion{Mensaje: "El autor debe tener al menos 5 años cumplidos en la fecha de lanzamiento"}
+	}
+	return nil
+}
+
+func validarLibroDuplicado(ctx context.Context, repo LibroRepository, idActual, idAutor, idEditorial int32, titulo string, fechaLanzamiento Date) error {
+	libros, err := repo.List(ctx)
+	if err != nil {
+		return fmt.Errorf("error al obtener libros: %w", err)
+	}
+	claveTitulo := normalizarClave(titulo)
+	fecha := fechaLanzamiento.Format(time.DateOnly)
+	for _, libro := range libros {
+		if libro.IDLibro != idActual &&
+			libro.IDAutor == idAutor &&
+			libro.IDEditorial == idEditorial &&
+			normalizarClave(libro.Titulo) == claveTitulo &&
+			libro.FechaLanzamiento.Format(time.DateOnly) == fecha {
+			return ErrDuplicado
+		}
 	}
 	return nil
 }

@@ -21,11 +21,17 @@ func validateNombre(nombre string) error {
 	if strings.TrimSpace(nombre) == "" {
 		return &ErrorValidacion{Mensaje: "El nombre no puede estar vacío"}
 	}
+	if utf8.RuneCountInString(nombre) > 100 {
+		return &ErrorValidacion{Mensaje: "El texto supera la longitud permitida para el campo."}
+	}
 	return nil
 }
 func validateEmail(email string) error {
 	if email == "" {
 		return &ErrorValidacion{Mensaje: "El email no puede estar vacío"}
+	}
+	if utf8.RuneCountInString(email) > 255 {
+		return &ErrorValidacion{Mensaje: "El texto supera la longitud permitida para el campo."}
 	}
 
 	re := regexp.MustCompile(
@@ -51,6 +57,22 @@ func validateContrasena(contrasena string) error {
 	return nil
 }
 
+func validarUsuarioDuplicado(ctx context.Context, repo UsuarioRepository, idActual int32, nombre, email string) error {
+	usuarios, err := repo.List(ctx)
+	if err != nil {
+		return fmt.Errorf("error al obtener usuarios: %w", err)
+	}
+	claveNombre := normalizarClave(nombre)
+	claveEmail := normalizarClave(email)
+	for _, usuario := range usuarios {
+		if usuario.ID != idActual &&
+			(normalizarClave(usuario.Nombre) == claveNombre || normalizarClave(usuario.Email) == claveEmail) {
+			return ErrDuplicado
+		}
+	}
+	return nil
+}
+
 func CreateUsuario(ctx context.Context, repo UsuarioRepository, nombre string, email string, contrasena string) (*Usuario, error) {
 	if err := validateEmail(email); err != nil {
 		return nil, fmt.Errorf("error al validar email: %w", err)
@@ -60,6 +82,9 @@ func CreateUsuario(ctx context.Context, repo UsuarioRepository, nombre string, e
 	}
 	if err := validateNombre(nombre); err != nil {
 		return nil, fmt.Errorf("error al validar nombre: %w", err)
+	}
+	if err := validarUsuarioDuplicado(ctx, repo, 0, nombre, email); err != nil {
+		return nil, err
 	}
 
 	return repo.Create(ctx, nombre, email, contrasena)
@@ -94,6 +119,9 @@ func UpdateUsuario(ctx context.Context, repo UsuarioRepository, id int32, nombre
 	_, err := repo.FindById(ctx, id)
 	if err != nil {
 		return nil, fmt.Errorf("error al buscar usuario para actualizar: %w", err)
+	}
+	if err := validarUsuarioDuplicado(ctx, repo, id, nombre, email); err != nil {
+		return nil, err
 	}
 
 	return repo.Update(ctx, id, nombre, email, contrasena)

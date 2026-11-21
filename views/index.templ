@@ -10,28 +10,28 @@ templ IndexPage(data PageData) {
 		<section id="biblioteca" aria-labelledby="libros-heading">
 			<div class="section-heading"><div><p class="eyebrow">01 / BIBLIOTECA</p><h2 id="libros-heading">Tus libros</h2></div><span id="libros-count" class="count">{ countText(len(data.Libros)) }</span></div>
 			<div class="workspace">
-				@LibroForm(data)
+				<div id="libros-form-box">@LibroForm(data)</div>
 				<div class="collection">@LibroList(data.Libros, data.AutorNames, data.EditorNames)</div>
 			</div>
 		</section>
 		<section id="autores" aria-labelledby="autores-heading">
 			<div class="section-heading"><div><p class="eyebrow">02 / QUIÉNES ESCRIBEN</p><h2 id="autores-heading">Autores</h2></div><span id="autores-count" class="count">{ countText(len(data.Autores)) }</span></div>
 			<div class="workspace">
-				@AutorForm(data)
+				<div id="autores-form-box">@AutorForm(data)</div>
 				<div class="collection">@AutorList(data.Autores)</div>
 			</div>
 		</section>
 		<section id="editoriales" aria-labelledby="editoriales-heading">
 			<div class="section-heading"><div><p class="eyebrow">03 / QUIÉNES PUBLICAN</p><h2 id="editoriales-heading">Editoriales</h2></div><span id="editoriales-count" class="count">{ countText(len(data.Editoriales)) }</span></div>
 			<div class="workspace">
-				@EditorialForm(data)
+				<div id="editoriales-form-box">@EditorialForm(data)</div>
 				<div class="collection">@EditorialList(data.Editoriales)</div>
 			</div>
 		</section>
 		<section id="usuarios" aria-labelledby="usuarios-heading">
 			<div class="section-heading"><div><p class="eyebrow">04 / LA COMUNIDAD</p><h2 id="usuarios-heading">Usuarios</h2></div><span id="usuarios-count" class="count">{ countText(len(data.Usuarios)) }</span></div>
 			<div class="workspace">
-				@UsuarioForm(data)
+				<div id="usuarios-form-box">@UsuarioForm(data)</div>
 				<div class="collection">@UsuarioList(data.Usuarios)</div>
 			</div>
 		</section>

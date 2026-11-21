@@ -34,7 +34,6 @@ func newWebHandler(queries *dbsqlc.Queries) http.Handler {
 	}
 	mux := http.NewServeMux()
 	mux.HandleFunc("GET /{$}", app.index)
-	mux.HandleFunc("GET /estado", app.estado)
 	mux.HandleFunc("GET /salud", func(w http.ResponseWriter, r *http.Request) {
 		if _, err := queries.ComprobarConexion(r.Context()); err != nil {
 			http.Error(w, "Base no disponible", http.StatusServiceUnavailable)
@@ -122,18 +121,7 @@ func parseForm(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func (app *webApp) formError(w http.ResponseWriter, r *http.Request, entity string, values url.Values, status int, message string) {
-	target := "#mensajes"
-	if entity != "" {
-		target = "#" + entity + "-mensajes"
-	}
-	if r.Method == http.MethodDelete {
-		if id, err := positiveNumber(r.PathValue("id"), "El ID"); err == nil {
-			target = fmt.Sprintf("#%s-error-%d", entity, id)
-		}
-	}
-	w.Header().Set("HX-Retarget", target)
-	w.Header().Set("HX-Reswap", "innerHTML")
+func (app *webApp) formError(w http.ResponseWriter, r *http.Request, status int, message string) {
 	renderHTML(w, r, status, views.OperationMessage(message))
 }
 
@@ -182,7 +170,7 @@ func formDate(value, label string) (time.Time, error) {
 
 func (app *webApp) create(w http.ResponseWriter, r *http.Request, entity string) {
 	if err := parseForm(w, r); err != nil {
-		app.formError(w, r, entity, nil, http.StatusBadRequest, err.Error())
+		app.formError(w, r, http.StatusBadRequest, err.Error())
 		return
 	}
 	values := r.PostForm
@@ -208,16 +196,15 @@ func (app *webApp) create(w http.ResponseWriter, r *http.Request, entity string)
 	}
 	if err != nil {
 		status, message := classifyError(err, entity)
-		app.formError(w, r, entity, values, status, message)
+		app.formError(w, r, status, message)
 		return
 	}
 	data, err := app.pageData(r.Context())
 	if err != nil {
-		app.formError(w, r, entity, nil, http.StatusInternalServerError, "El registro se guardó, pero no se pudo actualizar la lista. Recargá la página para comprobarlo.")
+		app.formError(w, r, http.StatusInternalServerError, "El registro se guardó, pero no se pudo actualizar la lista. Recargá la página para comprobarlo.")
 		return
 	}
-	w.Header().Set("HX-Trigger", "catalogoActualizado")
-	renderHTML(w, r, http.StatusOK, views.EntityList(entity, data))
+	renderHTML(w, r, http.StatusOK, views.CreateResponse(entity, data))
 }
 
 func (app *webApp) createLibro(ctx context.Context, values url.Values) error {
@@ -237,7 +224,7 @@ func (app *webApp) createLibro(ctx context.Context, values url.Values) error {
 	if err != nil {
 		return err
 	}
-	_, err = logic.CreateLibro(ctx, app.libros, app.autores, autor, values.Get("titulo"), editorial, date, pages)
+	_, err = logic.CreateLibro(ctx, app.libros, app.autores, app.editoriales, autor, values.Get("titulo"), editorial, date, pages)
 	return err
 }
 
@@ -249,9 +236,9 @@ func (app *webApp) delete(w http.ResponseWriter, r *http.Request, entity string)
 		case "libros":
 			err = logic.DeleteLibro(r.Context(), app.libros, id)
 		case "autores":
-			err = logic.DeleteAutor(r.Context(), app.autores, id)
+			err = logic.DeleteAutor(r.Context(), app.autores, app.libros, id)
 		case "editoriales":
-			err = logic.DeleteEditorial(r.Context(), app.editoriales, id)
+			err = logic.DeleteEditorial(r.Context(), app.editoriales, app.libros, id)
 		case "usuarios":
 			err = logic.DeleteUsuario(r.Context(), app.usuarios, id)
 		}
@@ -268,21 +255,8 @@ func (app *webApp) delete(w http.ResponseWriter, r *http.Request, entity string)
 				message = "No se puede eliminar este registro porque tiene lecturas asociadas."
 			}
 		}
-		app.formError(w, r, entity, nil, status, message)
+		app.formError(w, r, status, message)
 		return
 	}
-	w.Header().Set("HX-Trigger", "catalogoActualizado")
 	w.WriteHeader(http.StatusOK)
-}
-
-// Refresca contadores y referencias sin reemplazar los borradores de formularios.
-func (app *webApp) estado(w http.ResponseWriter, r *http.Request) {
-	data, err := app.pageData(r.Context())
-	if err != nil {
-		app.formError(w, r, "", nil, http.StatusInternalServerError, "No se pudo actualizar el estado de la biblioteca.")
-		return
-	}
-	data.ActiveForm = "libros"
-	data.Values = map[string]string{"id_autor": r.URL.Query().Get("id_autor"), "id_editorial": r.URL.Query().Get("id_editorial")}
-	renderHTML(w, r, http.StatusOK, views.CatalogState(data))
 }

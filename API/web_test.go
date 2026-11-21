@@ -13,9 +13,9 @@ import (
 	"testing"
 	"time"
 
-	"bookfly.com/db/migrations"
 	dbsqlc "bookfly.com/db/sqlc"
 	"bookfly.com/logic"
+	"bookfly.com/repository"
 )
 
 // Se ejecuta con make test sobre un PostgreSQL de prueba preparado por Compose.
@@ -29,9 +29,6 @@ func TestHTMLFragments(t *testing.T) {
 	}
 	defer conn.Close()
 	if err := conn.Ping(); err != nil {
-		t.Fatal(err)
-	}
-	if err := migrations.AplicarReglas(context.Background(), conn); err != nil {
 		t.Fatal(err)
 	}
 	queries := dbsqlc.New(conn)
@@ -79,10 +76,9 @@ func TestHTMLFragments(t *testing.T) {
 			t.Fatal(err)
 		}
 		if method == http.MethodDelete && want == http.StatusConflict {
-			parts := strings.Split(path, "/")
-			expected := "#" + parts[1] + "-error-" + parts[2]
-			if response.Header.Get("HX-Retarget") != expected || !strings.Contains(string(data), "tiene libros asociados") {
-				t.Fatal("el conflicto de borrado no indica el mensaje y su destino junto al registro")
+			body := string(data)
+			if !strings.Contains(body, `id="mensajes"`) || !strings.Contains(body, `hx-swap-oob="true"`) || !strings.Contains(body, "tiene libros asociados") {
+				t.Fatal("el conflicto de borrado no incluye la notificación OOB en #mensajes")
 			}
 		}
 		if response.StatusCode != want {
@@ -111,11 +107,14 @@ func TestHTMLFragments(t *testing.T) {
 	if !strings.Contains(page, "htmx.org@2.0.11") || !strings.Contains(page, "hx-post") {
 		t.Fatal("falta la integración HTMX")
 	}
+	if !strings.Contains(page, `"swapOverride":"none"`) || strings.Contains(page, "/estado") || strings.Contains(page, "hx-sync") || strings.Contains(page, "hx-disabled-elt") {
+		t.Fatal("configuración o atributos HTMX inesperados")
+	}
 	request(http.MethodGet, "/static/styles.css", "", "", http.StatusOK)
 	request(http.MethodGet, "/app.js", "", "", http.StatusNotFound)
 	fragment := post("/editoriales", url.Values{"nombre": {name}, "sede": {"Tandil"}}, http.StatusOK)
-	if strings.Contains(fragment, "<html") || !strings.Contains(fragment, "editoriales-list") {
-		t.Fatal("el alta no devolvió la lista parcial")
+	if strings.Contains(fragment, "<html") || !strings.Contains(fragment, "editoriales-list") || !strings.Contains(fragment, `id="editoriales-form-box" hx-swap-oob="true"`) || !strings.Contains(fragment, `id="libro-editorial"`) {
+		t.Fatal("el alta no devolvió la lista parcial ni los fragmentos OOB esperados")
 	}
 	editoriales, err := queries.ListEditoriales(ctx)
 	if err != nil {
@@ -238,8 +237,10 @@ func TestHTMLFragments(t *testing.T) {
 		post("/usuarios", url.Values{"nombre": {strings.ToUpper(username)}, "email": {"otro" + username + "@example.com"}, "contrasena": {"clave"}}, http.StatusConflict)
 		post("/usuarios", url.Values{"nombre": {"otro" + username}, "email": {strings.ToUpper(userForm.Get("email"))}, "contrasena": {"clave"}}, http.StatusConflict)
 		post("/editoriales", url.Values{"nombre": {strings.Repeat("ñ", 256)}, "sede": {"Tandil"}}, http.StatusBadRequest)
-		if _, err := conn.Exec("UPDATE autor SET fecha_nacimiento = DATE '9999-01-01' WHERE id_autor = $1", authorID); err == nil {
-			t.Fatal("la base aceptó un nacimiento futuro")
+		autoresRepo := repository.NewAutorSQL(queries)
+		librosRepo := repository.NewLibroSQL(queries)
+		if _, err := logic.UpdateAutor(ctx, autoresRepo, librosRepo, authorID, authorName, "Argentina", time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC), "Biografía"); err == nil {
+			t.Fatal("la capa de lógica aceptó un nacimiento futuro")
 		}
 		if _, err := conn.Exec("DELETE FROM libro WHERE titulo = $1 AND fecha_lanzamiento = DATE '2020-02-29'", title); err != nil {
 			t.Fatal(err)
@@ -251,11 +252,14 @@ func TestHTMLFragments(t *testing.T) {
 		if body := post("/libros", bookForm, http.StatusBadRequest); !strings.Contains(body, "5 años cumplidos") {
 			t.Fatal("falta el motivo de la cronología inválida")
 		}
-		if _, err := conn.Exec("UPDATE libro SET fecha_lanzamiento = DATE '1979-12-31' WHERE id_libro = $1", bookID); err == nil {
-			t.Fatal("la base permitió un libro anterior al nacimiento")
+		autoresRepo := repository.NewAutorSQL(queries)
+		editorialesRepo := repository.NewEditorialSQL(queries)
+		librosRepo := repository.NewLibroSQL(queries)
+		if _, err := logic.UpdateLibro(ctx, librosRepo, autoresRepo, editorialesRepo, bookID, authorID, title, editorialID, time.Date(1979, 12, 31, 0, 0, 0, 0, time.UTC), 250); err == nil {
+			t.Fatal("la capa de lógica permitió un libro anterior al nacimiento")
 		}
-		if _, err := conn.Exec("UPDATE autor SET fecha_nacimiento = DATE '2021-01-01' WHERE id_autor = $1", authorID); err == nil {
-			t.Fatal("la base permitió invalidar libros al cambiar el autor")
+		if _, err := logic.UpdateAutor(ctx, autoresRepo, librosRepo, authorID, authorName, "Argentina", time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC), "Biografía"); err == nil {
+			t.Fatal("la capa de lógica permitió invalidar libros al cambiar el autor")
 		}
 		// Se rechazan el nacimiento y el día anterior al quinto cumpleaños.
 		bookForm.Set("fecha_lanzamiento", "1980-01-15")
@@ -286,16 +290,24 @@ func TestHTMLFragments(t *testing.T) {
 		request(http.MethodDelete, "/libros/2147483647", "", "", http.StatusNotFound)
 		post("/desconocida", nil, http.StatusNotFound)
 		request(http.MethodGet, "/no-existe", "", "", http.StatusNotFound)
-		request(http.MethodDelete, fmt.Sprintf("/libros/%d", bookID), "", "", http.StatusOK)
+		if delBody := request(http.MethodDelete, fmt.Sprintf("/libros/%d", bookID), "", "", http.StatusOK); delBody != "" {
+			t.Fatalf("el borrado debe devolver cuerpo vacío, se obtuvo: %q", delBody)
+		}
 		if _, err := queries.GetLibro(ctx, bookID); err != sql.ErrNoRows {
 			t.Fatalf("el libro no se eliminó: %v", err)
 		}
 		bookID = 0
-		request(http.MethodDelete, fmt.Sprintf("/autores/%d", authorID), "", "", http.StatusOK)
+		if delBody := request(http.MethodDelete, fmt.Sprintf("/autores/%d", authorID), "", "", http.StatusOK); delBody != "" {
+			t.Fatalf("el borrado debe devolver cuerpo vacío, se obtuvo: %q", delBody)
+		}
 		authorID = 0
-		request(http.MethodDelete, fmt.Sprintf("/editoriales/%d", editorialID), "", "", http.StatusOK)
+		if delBody := request(http.MethodDelete, fmt.Sprintf("/editoriales/%d", editorialID), "", "", http.StatusOK); delBody != "" {
+			t.Fatalf("el borrado debe devolver cuerpo vacío, se obtuvo: %q", delBody)
+		}
 		editorialID = 0
-		request(http.MethodDelete, fmt.Sprintf("/usuarios/%d", userID), "", "", http.StatusOK)
+		if delBody := request(http.MethodDelete, fmt.Sprintf("/usuarios/%d", userID), "", "", http.StatusOK); delBody != "" {
+			t.Fatalf("el borrado debe devolver cuerpo vacío, se obtuvo: %q", delBody)
+		}
 		userID = 0
 	})
 }
