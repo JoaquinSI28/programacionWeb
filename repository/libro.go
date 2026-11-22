@@ -11,20 +11,43 @@ import (
 
 // LibroSQL implementa logic.LibroRepository usando las consultas de sqlc.
 type LibroSQL struct {
+	conn    *sql.DB
 	queries *dbsqlc.Queries
 }
 
-func NewLibroSQL(queries *dbsqlc.Queries) *LibroSQL {
-	return &LibroSQL{queries: queries}
+func NewLibroSQL(conn *sql.DB) *LibroSQL {
+	return &LibroSQL{conn: conn, queries: dbsqlc.New(conn)}
+}
+
+// El nacimiento consultado y la escritura del libro pertenecen a la misma transacción.
+func (r *LibroSQL) conEdadValidada(ctx context.Context, idAutor int32, lanzamiento logic.Date, escribir func(*dbsqlc.Queries) error) error {
+	return conTransaccionSerializable(ctx, r.conn, func(q *dbsqlc.Queries) error {
+		autor, err := q.GetAutor(ctx, idAutor)
+		if errors.Is(err, sql.ErrNoRows) {
+			return logic.ErrReferencia
+		}
+		if err != nil {
+			return err
+		}
+		if err := logic.ValidarEdadAlLanzamiento(autor.FechaNacimiento, lanzamiento); err != nil {
+			return err
+		}
+		return escribir(q)
+	})
 }
 
 func (r *LibroSQL) Create(ctx context.Context, idAutor int32, titulo string, idEditorial int32, fechaLanzamiento logic.Date, cantidadPaginas int32) (*logic.Libro, error) {
-	creado, err := r.queries.CreateLibro(ctx, dbsqlc.CreateLibroParams{
-		Titulo:           titulo,
-		IDAutor:          idAutor,
-		IDEditorial:      idEditorial,
-		FechaLanzamiento: fechaLanzamiento,
-		CantidadPaginas:  cantidadPaginas,
+	var creado dbsqlc.Libro
+	err := r.conEdadValidada(ctx, idAutor, fechaLanzamiento, func(q *dbsqlc.Queries) error {
+		var err error
+		creado, err = q.CreateLibro(ctx, dbsqlc.CreateLibroParams{
+			Titulo:           titulo,
+			IDAutor:          idAutor,
+			IDEditorial:      idEditorial,
+			FechaLanzamiento: fechaLanzamiento,
+			CantidadPaginas:  cantidadPaginas,
+		})
+		return err
 	})
 	if err != nil {
 		return nil, errorPersistencia(err)
@@ -81,24 +104,20 @@ func (r *LibroSQL) List(ctx context.Context) ([]*logic.Libro, error) {
 }
 
 func (r *LibroSQL) Delete(ctx context.Context, id int32) error {
-	err := r.queries.DeleteLibro(ctx, id)
-	if err != nil {
-		return errorPersistencia(err)
-	}
-	return nil
+	_, err := r.queries.DeleteLibro(ctx, id)
+	return errorDeEscritura(err, logic.ErrLibroNoEncontrado)
 }
 
 func (r *LibroSQL) Update(ctx context.Context, id int32, idAutor int32, titulo string, idEditorial int32, fechaLanzamiento logic.Date, cantidadPaginas int32) (*logic.Libro, error) {
-	err := r.queries.UpdateLibro(ctx, dbsqlc.UpdateLibroParams{
-		IDLibro:          id,
-		Titulo:           titulo,
-		IDAutor:          idAutor,
-		IDEditorial:      idEditorial,
-		FechaLanzamiento: fechaLanzamiento,
-		CantidadPaginas:  cantidadPaginas,
+	err := r.conEdadValidada(ctx, idAutor, fechaLanzamiento, func(q *dbsqlc.Queries) error {
+		_, err := q.UpdateLibro(ctx, dbsqlc.UpdateLibroParams{
+			IDLibro: id, Titulo: titulo, IDAutor: idAutor, IDEditorial: idEditorial,
+			FechaLanzamiento: fechaLanzamiento, CantidadPaginas: cantidadPaginas,
+		})
+		return errorDeEscritura(err, logic.ErrLibroNoEncontrado)
 	})
 	if err != nil {
-		return nil, errorPersistencia(err)
+		return nil, err
 	}
 
 	return &logic.Libro{

@@ -9,7 +9,7 @@ import (
 	"os"
 	"time"
 
-	dbsqlc "bookfly.com/db/sqlc"
+	"bookfly.com/db/migrations"
 	"bookfly.com/repository"
 	_ "github.com/lib/pq"
 )
@@ -38,12 +38,14 @@ func main() {
 	if err := repository.MigrarContrasenas(context.Background(), dbConn); err != nil {
 		log.Fatalf("Error al preparar usuarios: %v", err)
 	}
-	queries := dbsqlc.New(dbConn)
+	if err := migrations.AplicarReglas(context.Background(), dbConn); err != nil {
+		log.Fatalf("Error al aplicar las reglas del catálogo: %v", err)
+	}
 
 	port := ":8080"
 	log.Printf("Servidor escuchando en http://localhost%s", port)
 	server := &http.Server{
-		Addr: port, Handler: newWebHandler(queries),
+		Addr: port, Handler: newWebHandler(dbConn),
 		ReadHeaderTimeout: 5 * time.Second, IdleTimeout: 60 * time.Second,
 	}
 	log.Fatal(server.ListenAndServe())

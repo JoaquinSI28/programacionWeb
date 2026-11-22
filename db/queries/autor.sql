@@ -11,11 +11,13 @@ WHERE id_autor = $1;
 SELECT * FROM Autor 
 ORDER BY nombre;
 
--- name: UpdateAutor :exec
+-- name: UpdateAutor :one
 UPDATE Autor 
 SET nombre = $2, pais = $3, fecha_nacimiento = $4, biografia = $5
-WHERE id_autor = $1;
+WHERE id_autor = $1
+RETURNING id_autor;
 
--- name: DeleteAutor :exec
+-- name: DeleteAutor :one
 DELETE FROM Autor 
-WHERE id_autor = $1;
+WHERE id_autor = $1
+RETURNING id_autor;

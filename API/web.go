@@ -3,6 +3,7 @@ package main
 import (
 	"bytes"
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"log"
@@ -27,9 +28,10 @@ type webApp struct {
 	usuarios    logic.UsuarioRepository
 }
 
-func newWebHandler(queries *dbsqlc.Queries) http.Handler {
+func newWebHandler(conn *sql.DB) http.Handler {
+	queries := dbsqlc.New(conn)
 	app := &webApp{
-		libros: repository.NewLibroSQL(queries), autores: repository.NewAutorSQL(queries),
+		libros: repository.NewLibroSQL(conn), autores: repository.NewAutorSQL(conn),
 		editoriales: repository.NewEditorialSQL(queries), usuarios: repository.NewUsuarioSQL(queries),
 	}
 	mux := http.NewServeMux()
@@ -41,7 +43,12 @@ func newWebHandler(queries *dbsqlc.Queries) http.Handler {
 		}
 		w.WriteHeader(http.StatusNoContent)
 	})
+	mux.HandleFunc("GET /opciones/autores", app.autorOptions)
+	mux.HandleFunc("GET /opciones/editoriales", app.editorialOptions)
 	for _, entity := range []string{"libros", "autores", "editoriales", "usuarios"} {
+		mux.HandleFunc("GET /formularios/"+entity, func(w http.ResponseWriter, r *http.Request) {
+			app.form(w, r, entity)
+		})
 		mux.HandleFunc("POST /"+entity, func(w http.ResponseWriter, r *http.Request) {
 			app.create(w, r, entity)
 		})
@@ -57,28 +64,34 @@ func newWebHandler(queries *dbsqlc.Queries) http.Handler {
 	})
 }
 
-func (app *webApp) pageData(ctx context.Context) (views.PageData, error) {
+// Cada fragmento consulta únicamente las colecciones que va a mostrar.
+func (app *webApp) pageData(ctx context.Context, entities ...string) (views.PageData, error) {
 	data := views.PageData{Today: logic.Hoy()}
-	var err error
-	if data.Libros, err = logic.GetLibros(ctx, app.libros); err != nil {
-		return data, err
+	for _, entity := range entities {
+		var err error
+		switch entity {
+		case "libros":
+			data.Libros, err = logic.GetLibros(ctx, app.libros)
+		case "autores":
+			data.Autores, err = logic.GetAutores(ctx, app.autores)
+		case "editoriales":
+			data.Editoriales, err = logic.GetEditoriales(ctx, app.editoriales)
+		case "usuarios":
+			data.Usuarios, err = logic.GetUsuarios(ctx, app.usuarios)
+		}
+		if err != nil {
+			return data, err
+		}
 	}
-	if data.Autores, err = logic.GetAutores(ctx, app.autores); err != nil {
-		return data, err
-	}
-	if data.Editoriales, err = logic.GetEditoriales(ctx, app.editoriales); err != nil {
-		return data, err
-	}
-	if data.Usuarios, err = logic.GetUsuarios(ctx, app.usuarios); err != nil {
-		return data, err
-	}
-	data.AutorNames = make(map[int32]string)
-	for _, autor := range data.Autores {
-		data.AutorNames[autor.IDAutor] = autor.Nombre
-	}
-	data.EditorNames = make(map[int32]string)
-	for _, editorial := range data.Editoriales {
-		data.EditorNames[editorial.IDEditorial] = editorial.Nombre
+	if len(data.Libros) > 0 {
+		data.AutorNames = make(map[int32]string, len(data.Autores))
+		for _, autor := range data.Autores {
+			data.AutorNames[autor.IDAutor] = autor.Nombre
+		}
+		data.EditorNames = make(map[int32]string, len(data.Editoriales))
+		for _, editorial := range data.Editoriales {
+			data.EditorNames[editorial.IDEditorial] = editorial.Nombre
+		}
 	}
 	return data, nil
 }
@@ -100,13 +113,45 @@ func renderHTML(w http.ResponseWriter, r *http.Request, status int, component te
 }
 
 func (app *webApp) index(w http.ResponseWriter, r *http.Request) {
-	data, err := app.pageData(r.Context())
+	data, err := app.pageData(r.Context(), "libros", "autores", "editoriales", "usuarios")
 	if err != nil {
 		log.Printf("Error al consultar la biblioteca: %v", err)
 		renderHTML(w, r, http.StatusInternalServerError, views.ErrorPage("No se pudo consultar la biblioteca. Intentá nuevamente."))
 		return
 	}
 	renderHTML(w, r, http.StatusOK, views.IndexPage(data))
+}
+
+// El alta refresca sólo su propio formulario. En libros también se cargan sus referencias.
+func (app *webApp) form(w http.ResponseWriter, r *http.Request, entity string) {
+	data := views.PageData{Today: logic.Hoy()}
+	if entity == "libros" {
+		var err error
+		data, err = app.pageData(r.Context(), "autores", "editoriales")
+		if err != nil {
+			operationError(w, r, "libros-form-error", http.StatusInternalServerError, "No se pudo actualizar el formulario de libros. Recargá la página.")
+			return
+		}
+	}
+	renderHTML(w, r, http.StatusOK, views.EntityForm(entity, data))
+}
+
+func (app *webApp) autorOptions(w http.ResponseWriter, r *http.Request) {
+	autores, err := logic.GetAutores(r.Context(), app.autores)
+	if err != nil {
+		operationError(w, r, "libros-form-error", http.StatusInternalServerError, "No se pudo actualizar el selector de autores. Recargá la página.")
+		return
+	}
+	renderHTML(w, r, http.StatusOK, views.AutorOptions(autores, r.URL.Query().Get("id_autor")))
+}
+
+func (app *webApp) editorialOptions(w http.ResponseWriter, r *http.Request) {
+	editoriales, err := logic.GetEditoriales(r.Context(), app.editoriales)
+	if err != nil {
+		operationError(w, r, "libros-form-error", http.StatusInternalServerError, "No se pudo actualizar el selector de editoriales. Recargá la página.")
+		return
+	}
+	renderHTML(w, r, http.StatusOK, views.EditorialOptions(editoriales, r.URL.Query().Get("id_editorial")))
 }
 
 func parseForm(w http.ResponseWriter, r *http.Request) error {
@@ -121,8 +166,8 @@ func parseForm(w http.ResponseWriter, r *http.Request) error {
 	return nil
 }
 
-func (app *webApp) formError(w http.ResponseWriter, r *http.Request, status int, message string) {
-	renderHTML(w, r, status, views.OperationMessage(message))
+func operationError(w http.ResponseWriter, r *http.Request, id string, status int, message string) {
+	renderHTML(w, r, status, views.OperationMessage(id, message))
 }
 
 func classifyError(err error, entity string) (int, string) {
@@ -169,8 +214,9 @@ func formDate(value, label string) (time.Time, error) {
 }
 
 func (app *webApp) create(w http.ResponseWriter, r *http.Request, entity string) {
+	errorTarget := entity + "-form-error"
 	if err := parseForm(w, r); err != nil {
-		app.formError(w, r, http.StatusBadRequest, err.Error())
+		operationError(w, r, errorTarget, http.StatusBadRequest, err.Error())
 		return
 	}
 	values := r.PostForm
@@ -196,15 +242,19 @@ func (app *webApp) create(w http.ResponseWriter, r *http.Request, entity string)
 	}
 	if err != nil {
 		status, message := classifyError(err, entity)
-		app.formError(w, r, status, message)
+		operationError(w, r, errorTarget, status, message)
 		return
 	}
-	data, err := app.pageData(r.Context())
+	collections := []string{entity}
+	if entity == "libros" {
+		collections = append(collections, "autores", "editoriales")
+	}
+	data, err := app.pageData(r.Context(), collections...)
 	if err != nil {
-		app.formError(w, r, http.StatusInternalServerError, "El registro se guardó, pero no se pudo actualizar la lista. Recargá la página para comprobarlo.")
+		operationError(w, r, errorTarget, http.StatusInternalServerError, "El registro se guardó, pero no se pudo actualizar la lista. Recargá la página para comprobarlo.")
 		return
 	}
-	renderHTML(w, r, http.StatusOK, views.CreateResponse(entity, data))
+	renderHTML(w, r, http.StatusOK, views.EntityList(entity, data, true))
 }
 
 func (app *webApp) createLibro(ctx context.Context, values url.Values) error {
@@ -224,7 +274,7 @@ func (app *webApp) createLibro(ctx context.Context, values url.Values) error {
 	if err != nil {
 		return err
 	}
-	_, err = logic.CreateLibro(ctx, app.libros, app.autores, app.editoriales, autor, values.Get("titulo"), editorial, date, pages)
+	_, err = logic.CreateLibro(ctx, app.libros, autor, values.Get("titulo"), editorial, date, pages)
 	return err
 }
 
@@ -236,9 +286,9 @@ func (app *webApp) delete(w http.ResponseWriter, r *http.Request, entity string)
 		case "libros":
 			err = logic.DeleteLibro(r.Context(), app.libros, id)
 		case "autores":
-			err = logic.DeleteAutor(r.Context(), app.autores, app.libros, id)
+			err = logic.DeleteAutor(r.Context(), app.autores, id)
 		case "editoriales":
-			err = logic.DeleteEditorial(r.Context(), app.editoriales, app.libros, id)
+			err = logic.DeleteEditorial(r.Context(), app.editoriales, id)
 		case "usuarios":
 			err = logic.DeleteUsuario(r.Context(), app.usuarios, id)
 		}
@@ -255,7 +305,7 @@ func (app *webApp) delete(w http.ResponseWriter, r *http.Request, entity string)
 				message = "No se puede eliminar este registro porque tiene lecturas asociadas."
 			}
 		}
-		app.formError(w, r, status, message)
+		operationError(w, r, entity+"-"+strconv.FormatInt(int64(id), 10)+"-error", status, message)
 		return
 	}
 	w.WriteHeader(http.StatusOK)

@@ -6,99 +6,83 @@ templ LibroForm(data PageData) {
 	<form id="libros-form" action="/libros" method="post" hx-post="/libros" hx-target="#libros-list" hx-swap="outerHTML">
 		<h3>Agregar un libro</h3>
 		<label for="libro-titulo">Título</label>
-		<input id="libro-titulo" name="titulo" required maxlength="255" value={ data.Value("libros", "titulo") }/>
+		<input id="libro-titulo" name="titulo" required maxlength="255"/>
 		<label for="libro-autor">Autor</label>
-		@AutorSelect(data)
+		<select id="libro-autor" name="id_autor" required hx-get="/opciones/autores" hx-trigger="htmx:after:request from:#autores target:':is(form,button)'" hx-swap="innerHTML">
+			@AutorOptions(data.Autores, "")
+		</select>
 		<label for="libro-editorial">Editorial</label>
-		@EditorialSelect(data)
+		<select id="libro-editorial" name="id_editorial" required hx-get="/opciones/editoriales" hx-trigger="htmx:after:request from:#editoriales target:':is(form,button)'" hx-swap="innerHTML">
+			@EditorialOptions(data.Editoriales, "")
+		</select>
 		<p class="field-hint">Si no aparecen opciones, agregalas en las secciones de abajo.</p>
 		<div class="form-row">
 			<div>
 				<label for="libro-fecha">Fecha de lanzamiento</label>
-				<input id="libro-fecha" type="date" name="fecha_lanzamiento" required max={ data.Today } value={ data.Value("libros", "fecha_lanzamiento") }/>
+				<input id="libro-fecha" type="date" name="fecha_lanzamiento" required max={ data.Today }/>
 			</div>
 			<div>
 				<label for="libro-paginas">Páginas</label>
-				<input id="libro-paginas" type="number" name="cantidad_paginas" min="1" max="2147483647" step="1" required value={ data.Value("libros", "cantidad_paginas") }/>
+				<input id="libro-paginas" type="number" name="cantidad_paginas" min="1" max="2147483647" step="1" required/>
 			</div>
 		</div>
+		<div id="libros-form-error" aria-live="polite"></div>
 		<button type="submit">Agregar libro</button>
 	</form>
 }
 
-templ AutorForm(data PageData) {
+templ AutorForm(today string) {
 	<form id="autores-form" action="/autores" method="post" hx-post="/autores" hx-target="#autores-list" hx-swap="outerHTML">
 		<h3>Agregar un autor</h3>
 		<label for="autor-nombre">Nombre</label>
-		<input id="autor-nombre" name="nombre" required maxlength="255" value={ data.Value("autores", "nombre") }/>
+		<input id="autor-nombre" name="nombre" required maxlength="255"/>
 		<label for="autor-pais">País</label>
-		<input id="autor-pais" name="pais" required maxlength="100" value={ data.Value("autores", "pais") }/>
+		<input id="autor-pais" name="pais" required maxlength="100"/>
 		<label for="autor-fecha">Fecha de nacimiento</label>
-		<input id="autor-fecha" name="fecha_nacimiento" type="date" required max={ data.Today } value={ data.Value("autores", "fecha_nacimiento") }/>
+		<input id="autor-fecha" name="fecha_nacimiento" type="date" required max={ today }/>
 		<label for="autor-biografia">Biografía</label>
-		<textarea id="autor-biografia" name="biografia" rows="3" required>{ data.Value("autores", "biografia") }</textarea>
+		<textarea id="autor-biografia" name="biografia" rows="3" required></textarea>
+		<div id="autores-form-error" aria-live="polite"></div>
 		<button type="submit">Agregar autor</button>
 	</form>
 }
 
-templ EditorialForm(data PageData) {
+templ EditorialForm() {
 	<form id="editoriales-form" action="/editoriales" method="post" hx-post="/editoriales" hx-target="#editoriales-list" hx-swap="outerHTML">
 		<h3>Agregar una editorial</h3>
 		<label for="editorial-nombre">Nombre</label>
-		<input id="editorial-nombre" name="nombre" required maxlength="255" value={ data.Value("editoriales", "nombre") }/>
+		<input id="editorial-nombre" name="nombre" required maxlength="255"/>
 		<label for="editorial-sede">Sede</label>
-		<input id="editorial-sede" name="sede" required maxlength="255" value={ data.Value("editoriales", "sede") }/>
+		<input id="editorial-sede" name="sede" required maxlength="255"/>
+		<div id="editoriales-form-error" aria-live="polite"></div>
 		<button type="submit">Agregar editorial</button>
 	</form>
 }
 
-templ UsuarioForm(data PageData) {
+templ UsuarioForm() {
 	<form id="usuarios-form" action="/usuarios" method="post" hx-post="/usuarios" hx-target="#usuarios-list" hx-swap="outerHTML">
 		<h3>Agregar un usuario</h3>
 		<label for="usuario-nombre">Nombre de usuario</label>
-		<input id="usuario-nombre" name="nombre" autocomplete="username" required maxlength="100" value={ data.Value("usuarios", "nombre") }/>
+		<input id="usuario-nombre" name="nombre" autocomplete="username" required maxlength="100"/>
 		<label for="usuario-email">Correo electrónico</label>
-		<input id="usuario-email" name="email" type="email" autocomplete="email" required maxlength="255" value={ data.Value("usuarios", "email") }/>
+		<input id="usuario-email" name="email" type="email" autocomplete="email" required maxlength="255"/>
 		<label for="usuario-contrasena">Contraseña</label>
 		<input id="usuario-contrasena" name="contrasena" type="password" autocomplete="new-password" minlength="3" maxlength="255" required/>
+		<div id="usuarios-form-error" aria-live="polite"></div>
 		<button type="submit">Agregar usuario</button>
 	</form>
 }
 
-templ autorSelectOptions(autores []*logic.Autor, selected string) {
+templ AutorOptions(autores []*logic.Autor, selected string) {
 	<option value="">Seleccioná un autor</option>
 	for _, autor := range autores {
 		<option value={ idString(autor.IDAutor) } selected?={ selected == idString(autor.IDAutor) }>{ autor.Nombre + " · " + autor.Pais + " · " + autor.FechaNacimiento.Format("2006-01-02") }</option>
 	}
 }
 
-templ AutorSelect(data PageData) {
-	<select id="libro-autor" name="id_autor" required>
-		@autorSelectOptions(data.Autores, data.Value("libros", "id_autor"))
-	</select>
-}
-
-templ AutorSelectOOB(data PageData) {
-	<select id="libro-autor" name="id_autor" required hx-swap-oob="true">
-		@autorSelectOptions(data.Autores, "")
-	</select>
-}
-
-templ editorialSelectOptions(editoriales []*logic.Editorial, selected string) {
+templ EditorialOptions(editoriales []*logic.Editorial, selected string) {
 	<option value="">Seleccioná una editorial</option>
 	for _, editorial := range editoriales {
 		<option value={ idString(editorial.IDEditorial) } selected?={ selected == idString(editorial.IDEditorial) }>{ editorial.Nombre + " · " + editorial.Sede }</option>
 	}
-}
-
-templ EditorialSelect(data PageData) {
-	<select id="libro-editorial" name="id_editorial" required>
-		@editorialSelectOptions(data.Editoriales, data.Value("libros", "id_editorial"))
-	</select>
-}
-
-templ EditorialSelectOOB(data PageData) {
-	<select id="libro-editorial" name="id_editorial" required hx-swap-oob="true">
-		@editorialSelectOptions(data.Editoriales, "")
-	</select>
 }

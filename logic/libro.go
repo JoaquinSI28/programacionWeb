@@ -51,7 +51,7 @@ func validateIDAutor(idAutor int32) error {
 	return nil
 }
 
-func CreateLibro(ctx context.Context, repo LibroRepository, autores AutorRepository, editoriales EditorialRepository, idAutor int32, titulo string, idEditorial int32, fechaLanzamiento Date, cantidadPaginas int32) (*Libro, error) {
+func CreateLibro(ctx context.Context, repo LibroRepository, idAutor int32, titulo string, idEditorial int32, fechaLanzamiento Date, cantidadPaginas int32) (*Libro, error) {
 	if err := validateTitulo(titulo); err != nil {
 		return nil, fmt.Errorf("error al validar título: %w", err)
 	}
@@ -68,16 +68,10 @@ func CreateLibro(ctx context.Context, repo LibroRepository, autores AutorReposit
 		return nil, fmt.Errorf("error al validar cantidad de páginas: %w", err)
 	}
 
-	if err := validarCronologiaLibro(ctx, autores, editoriales, idAutor, idEditorial, fechaLanzamiento); err != nil {
-		return nil, err
-	}
-	if err := validarLibroDuplicado(ctx, repo, 0, idAutor, idEditorial, titulo, fechaLanzamiento); err != nil {
-		return nil, err
-	}
 	return repo.Create(ctx, idAutor, titulo, idEditorial, fechaLanzamiento, cantidadPaginas)
 }
 
-func UpdateLibro(ctx context.Context, repo LibroRepository, autores AutorRepository, editoriales EditorialRepository, id int32, idAutor int32, titulo string, idEditorial int32, fechaLanzamiento Date, cantidadPaginas int32) (*Libro, error) {
+func UpdateLibro(ctx context.Context, repo LibroRepository, id int32, idAutor int32, titulo string, idEditorial int32, fechaLanzamiento Date, cantidadPaginas int32) (*Libro, error) {
 	if err := validateTitulo(titulo); err != nil {
 		return nil, fmt.Errorf("error al validar título: %w", err)
 	}
@@ -94,16 +88,6 @@ func UpdateLibro(ctx context.Context, repo LibroRepository, autores AutorReposit
 		return nil, fmt.Errorf("error al validar cantidad de páginas: %w", err)
 	}
 
-	if _, err := GetLibro(ctx, repo, id); err != nil {
-		return nil, err
-	}
-
-	if err := validarCronologiaLibro(ctx, autores, editoriales, idAutor, idEditorial, fechaLanzamiento); err != nil {
-		return nil, err
-	}
-	if err := validarLibroDuplicado(ctx, repo, id, idAutor, idEditorial, titulo, fechaLanzamiento); err != nil {
-		return nil, err
-	}
 	return repo.Update(ctx, id, idAutor, titulo, idEditorial, fechaLanzamiento, cantidadPaginas)
 }
 
@@ -124,55 +108,9 @@ func GetLibros(ctx context.Context, repo LibroRepository) ([]*Libro, error) {
 }
 
 func DeleteLibro(ctx context.Context, repo LibroRepository, id int32) error {
-	if _, err := GetLibro(ctx, repo, id); err != nil {
-		return err
-	}
-
 	err := repo.Delete(ctx, id)
 	if err != nil {
 		return fmt.Errorf("error al eliminar libro: %w", err)
-	}
-	return nil
-}
-
-func validarCronologiaLibro(ctx context.Context, autores AutorRepository, editoriales EditorialRepository, idAutor, idEditorial int32, lanzamiento Date) error {
-	autor, err := autores.FindById(ctx, idAutor)
-	if err != nil {
-		if errors.Is(err, ErrAutorNoEncontrado) {
-			return ErrReferencia
-		}
-		return err
-	}
-	if editoriales != nil {
-		if _, err := editoriales.FindById(ctx, idEditorial); err != nil {
-			if errors.Is(err, ErrEditorialNoEncontrada) {
-				return ErrReferencia
-			}
-			return err
-		}
-	}
-	minima := fechaMinimaPublicacion(autor.FechaNacimiento)
-	if lanzamiento.Format(time.DateOnly) < minima.Format(time.DateOnly) {
-		return &ErrorValidacion{Mensaje: "El autor debe tener al menos 5 años cumplidos en la fecha de lanzamiento"}
-	}
-	return nil
-}
-
-func validarLibroDuplicado(ctx context.Context, repo LibroRepository, idActual, idAutor, idEditorial int32, titulo string, fechaLanzamiento Date) error {
-	libros, err := repo.List(ctx)
-	if err != nil {
-		return fmt.Errorf("error al obtener libros: %w", err)
-	}
-	claveTitulo := normalizarClave(titulo)
-	fecha := fechaLanzamiento.Format(time.DateOnly)
-	for _, libro := range libros {
-		if libro.IDLibro != idActual &&
-			libro.IDAutor == idAutor &&
-			libro.IDEditorial == idEditorial &&
-			normalizarClave(libro.Titulo) == claveTitulo &&
-			libro.FechaLanzamiento.Format(time.DateOnly) == fecha {
-			return ErrDuplicado
-		}
 	}
 	return nil
 }

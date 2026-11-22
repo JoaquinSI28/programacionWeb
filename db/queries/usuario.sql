@@ -11,11 +11,13 @@ WHERE id_usuario = $1;
 SELECT id_usuario, nombre_usuario, mail FROM Usuario
 ORDER BY nombre_usuario;
 
--- name: UpdateUsuario :exec
+-- name: UpdateUsuario :one
 UPDATE Usuario
 SET nombre_usuario = $2, mail = $3, contrasena_hash = $4
-WHERE id_usuario = $1;
+WHERE id_usuario = $1
+RETURNING id_usuario;
 
--- name: DeleteUsuario :exec
+-- name: DeleteUsuario :one
 DELETE FROM Usuario
-WHERE id_usuario = $1;
+WHERE id_usuario = $1
+RETURNING id_usuario;

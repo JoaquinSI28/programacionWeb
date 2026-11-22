@@ -13,6 +13,7 @@ import (
 	"testing"
 	"time"
 
+	"bookfly.com/db/migrations"
 	dbsqlc "bookfly.com/db/sqlc"
 	"bookfly.com/logic"
 	"bookfly.com/repository"
@@ -31,11 +32,14 @@ func TestHTMLFragments(t *testing.T) {
 	if err := conn.Ping(); err != nil {
 		t.Fatal(err)
 	}
+	ctx := context.Background()
+	if err := migrations.AplicarReglas(ctx, conn); err != nil {
+		t.Fatal(err)
+	}
 	queries := dbsqlc.New(conn)
-	server := httptest.NewServer(newWebHandler(queries))
+	server := httptest.NewServer(newWebHandler(conn))
 	defer server.Close()
 	client := &http.Client{CheckRedirect: func(*http.Request, []*http.Request) error { return http.ErrUseLastResponse }}
-	ctx := context.Background()
 	suffix := strconv.FormatInt(time.Now().UnixNano(), 10)
 	name := "Editorial HTML " + suffix + " <script>alert(1)</script>"
 	authorName, username := "Autor HTML "+suffix, "lector_"+suffix
@@ -44,20 +48,20 @@ func TestHTMLFragments(t *testing.T) {
 	var editorialID, authorID, bookID, userID int32
 	defer func() {
 		if bookID != 0 {
-			_ = queries.DeleteLibro(ctx, bookID)
+			_, _ = queries.DeleteLibro(ctx, bookID)
 		}
 		if authorID != 0 {
-			_ = queries.DeleteAutor(ctx, authorID)
+			_, _ = queries.DeleteAutor(ctx, authorID)
 		}
 		if editorialID != 0 {
-			_ = queries.DeleteEditorial(ctx, editorialID)
+			_, _ = queries.DeleteEditorial(ctx, editorialID)
 		}
 		if userID != 0 {
-			_ = queries.DeleteUsuario(ctx, userID)
+			_, _ = queries.DeleteUsuario(ctx, userID)
 		}
 	}()
 
-	request := func(method, path, body, contentType string, want int) string {
+	request := func(t *testing.T, method, path, body, contentType string, want int) string {
 		t.Helper()
 		req, err := http.NewRequest(method, server.URL+path, strings.NewReader(body))
 		if err != nil {
@@ -75,47 +79,51 @@ func TestHTMLFragments(t *testing.T) {
 		if err != nil {
 			t.Fatal(err)
 		}
-		if method == http.MethodDelete && want == http.StatusConflict {
-			body := string(data)
-			if !strings.Contains(body, `id="mensajes"`) || !strings.Contains(body, `hx-swap-oob="true"`) || !strings.Contains(body, "tiene libros asociados") {
-				t.Fatal("el conflicto de borrado no incluye la notificación OOB en #mensajes")
-			}
-		}
 		if response.StatusCode != want {
 			t.Fatalf("%s %s: estado %d, esperado %d; %s", method, path, response.StatusCode, want, data)
 		}
 		if want == http.StatusOK && response.Header.Get("Location") != "" {
 			t.Fatalf("redirección incorrecta: %q", response.Header.Get("Location"))
 		}
+		if method == http.MethodDelete && want == http.StatusConflict {
+			if !strings.Contains(string(data), "tiene libros asociados") || !strings.Contains(string(data), `role="alert"`) {
+				t.Fatalf("no se explica por qué se conservó la fila: %s", data)
+			}
+			errorID := strings.ReplaceAll(strings.TrimPrefix(path, "/"), "/", "-") + "-error"
+			if !strings.Contains(string(data), `id="`+errorID+`"`) || !strings.Contains(string(data), "hx-swap-oob") {
+				t.Fatalf("falta el aviso junto al registro %s: %s", errorID, data)
+			}
+		}
 		if want == http.StatusOK && path == "/" && !strings.HasPrefix(response.Header.Get("Content-Type"), "text/html") {
 			t.Fatal("la página no es HTML")
 		}
 		return string(data)
 	}
-	post := func(path string, values url.Values, status int) string {
+	post := func(t *testing.T, path string, values url.Values, status int) string {
 		t.Helper()
-		return request(http.MethodPost, path, values.Encode(), "application/x-www-form-urlencoded", status)
+		body := request(t, http.MethodPost, path, values.Encode(), "application/x-www-form-urlencoded", status)
+		if status == http.StatusOK {
+			list := strings.TrimSpace(body)
+			if !strings.HasPrefix(list, "<ul ") || !strings.Contains(list, `id="`+strings.TrimPrefix(path, "/")+`-list"`) || strings.Count(list, "</ul>") != 1 || !strings.HasSuffix(list, "</ul>") {
+				t.Fatalf("POST %s debe devolver exclusivamente la lista: %s", path, body)
+			}
+		}
+		return body
 	}
-	get := func() string { t.Helper(); return request(http.MethodGet, "/", "", "", http.StatusOK) }
-	if body := request(http.MethodGet, "/salud", "", "", http.StatusNoContent); body != "" {
+	get := func() string { t.Helper(); return request(t, http.MethodGet, "/", "", "", http.StatusOK) }
+	if body := request(t, http.MethodGet, "/salud", "", "", http.StatusNoContent); body != "" {
 		t.Fatal("salud devolvió contenido")
 	}
 	page := get()
 	if !strings.Contains(page, "<!doctype html>") && !strings.Contains(page, "<!DOCTYPE html>") {
 		t.Fatal("falta documento HTML completo")
 	}
-	if !strings.Contains(page, "htmx.org@2.0.11") || !strings.Contains(page, "hx-post") {
+	if !strings.Contains(page, "htmx.org@4.0.0") || !strings.Contains(page, "hx-post") {
 		t.Fatal("falta la integración HTMX")
 	}
-	if !strings.Contains(page, `"swapOverride":"none"`) || strings.Contains(page, "/estado") || strings.Contains(page, "hx-sync") || strings.Contains(page, "hx-disabled-elt") {
-		t.Fatal("configuración o atributos HTMX inesperados")
-	}
-	request(http.MethodGet, "/static/styles.css", "", "", http.StatusOK)
-	request(http.MethodGet, "/app.js", "", "", http.StatusNotFound)
-	fragment := post("/editoriales", url.Values{"nombre": {name}, "sede": {"Tandil"}}, http.StatusOK)
-	if strings.Contains(fragment, "<html") || !strings.Contains(fragment, "editoriales-list") || !strings.Contains(fragment, `id="editoriales-form-box" hx-swap-oob="true"`) || !strings.Contains(fragment, `id="libro-editorial"`) {
-		t.Fatal("el alta no devolvió la lista parcial ni los fragmentos OOB esperados")
-	}
+	request(t, http.MethodGet, "/static/styles.css", "", "", http.StatusOK)
+	request(t, http.MethodGet, "/app.js", "", "", http.StatusNotFound)
+	post(t, "/editoriales", url.Values{"nombre": {name}, "sede": {"Tandil"}}, http.StatusOK)
 	editoriales, err := queries.ListEditoriales(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -144,7 +152,7 @@ func TestHTMLFragments(t *testing.T) {
 		t.Fatalf("recargar creó %d editoriales", count)
 	}
 
-	post("/autores", url.Values{"nombre": {authorName}, "pais": {"Argentina"}, "fecha_nacimiento": {"1980-01-15"}, "biografia": {"Biografía"}}, http.StatusOK)
+	post(t, "/autores", url.Values{"nombre": {authorName}, "pais": {"Argentina"}, "fecha_nacimiento": {"1980-01-15"}, "biografia": {"Biografía"}}, http.StatusOK)
 	autores, err := queries.ListAutores(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -159,11 +167,11 @@ func TestHTMLFragments(t *testing.T) {
 	}
 	userForm := url.Values{"nombre": {username}, "email": {username + "@example.com"}, "contrasena": {password}}
 	userForm.Set("contrasena", password+"ñ")
-	if body := post("/usuarios", userForm, http.StatusBadRequest); !strings.Contains(body, "255 caracteres") || strings.Contains(body, password) {
+	if body := post(t, "/usuarios", userForm, http.StatusBadRequest); !strings.Contains(body, "255 caracteres") || strings.Contains(body, password) {
 		t.Fatal("falta el error de longitud o se devolvió la contraseña")
 	}
 	userForm.Set("contrasena", password)
-	post("/usuarios", userForm, http.StatusOK)
+	post(t, "/usuarios", userForm, http.StatusOK)
 	usuarios, err := queries.ListUsuarios(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -183,13 +191,13 @@ func TestHTMLFragments(t *testing.T) {
 	if !strings.HasPrefix(stored, "pbkdf2-sha256$") || strings.Contains(stored, password) {
 		t.Fatal("la contraseña no fue protegida")
 	}
-	page = post("/usuarios", userForm, http.StatusConflict)
+	page = post(t, "/usuarios", userForm, http.StatusConflict)
 	if !strings.Contains(page, "ya está registrado") || strings.Contains(page, password) {
 		t.Fatal("error de duplicado no preserva campos seguros o devuelve la contraseña")
 	}
 
 	bookForm := url.Values{"titulo": {title}, "id_autor": {strconv.Itoa(int(authorID))}, "id_editorial": {strconv.Itoa(int(editorialID))}, "cantidad_paginas": {"250"}, "fecha_lanzamiento": {"2020-01-15"}}
-	post("/libros", bookForm, http.StatusOK)
+	post(t, "/libros", bookForm, http.StatusOK)
 	libros, err := queries.ListLibros(ctx)
 	if err != nil {
 		t.Fatal(err)
@@ -206,11 +214,12 @@ func TestHTMLFragments(t *testing.T) {
 	if !strings.Contains(page, title) || !strings.Contains(page, authorName) || strings.Contains(page, password) {
 		t.Fatal("listado incompleto o contraseña visible")
 	}
-	request(http.MethodDelete, fmt.Sprintf("/autores/%d", authorID), "", "", http.StatusConflict)
+	request(t, http.MethodDelete, fmt.Sprintf("/autores/%d", authorID), "", "", http.StatusConflict)
+	request(t, http.MethodDelete, fmt.Sprintf("/editoriales/%d", editorialID), "", "", http.StatusConflict)
 
 	t.Run("duplicados y fechas del catálogo", func(t *testing.T) {
 		autor := url.Values{"nombre": {strings.ToUpper(authorName)}, "pais": {"  argentina  "}, "fecha_nacimiento": {"1980-01-15"}, "biografia": {"Otra biografía"}}
-		if body := post("/autores", autor, http.StatusConflict); !strings.Contains(body, "Ya existe un autor") {
+		if body := post(t, "/autores", autor, http.StatusConflict); !strings.Contains(body, "Ya existe un autor") {
 			t.Fatal("mensaje de autor duplicado incorrecto")
 		}
 		hoy, err := time.Parse(time.DateOnly, logic.Hoy())
@@ -219,27 +228,29 @@ func TestHTMLFragments(t *testing.T) {
 		}
 		for _, fecha := range []string{"", "0000-01-01", "2025-02-29", hoy.AddDate(0, 0, 1).Format(time.DateOnly)} {
 			autor.Set("fecha_nacimiento", fecha)
-			post("/autores", autor, http.StatusBadRequest)
+			post(t, "/autores", autor, http.StatusBadRequest)
 		}
 		defer conn.Exec("DELETE FROM autor WHERE nombre = $1 AND fecha_nacimiento = $2", autor.Get("nombre"), hoy)
 		autor.Set("fecha_nacimiento", hoy.Format(time.DateOnly))
-		post("/autores", autor, http.StatusOK)
+		post(t, "/autores", autor, http.StatusOK)
 		editorial := url.Values{"nombre": {strings.ReplaceAll(strings.ToUpper(name), " ", "  ")}, "sede": {"tandil"}}
-		post("/editoriales", editorial, http.StatusConflict)
+		post(t, "/editoriales", editorial, http.StatusConflict)
 		defer conn.Exec("DELETE FROM editorial WHERE nombre = $1 AND sede = $2", editorial.Get("nombre"), "Otra sede")
 		editorial.Set("sede", "Otra sede")
-		post("/editoriales", editorial, http.StatusOK)
+		updated := post(t, "/editoriales", editorial, http.StatusOK)
+		if !strings.Contains(updated, "Sede: Tandil") || !strings.Contains(updated, "Sede: Otra sede") {
+			t.Fatal("el alta debe devolver la lista completa de editoriales")
+		}
 		bookForm.Set("cantidad_paginas", "251")
-		post("/libros", bookForm, http.StatusConflict)
+		post(t, "/libros", bookForm, http.StatusConflict)
 		bookForm.Set("fecha_lanzamiento", "2020-02-29")
-		post("/libros", bookForm, http.StatusOK)
+		post(t, "/libros", bookForm, http.StatusOK)
 		bookForm.Set("fecha_lanzamiento", "2020-01-15")
-		post("/usuarios", url.Values{"nombre": {strings.ToUpper(username)}, "email": {"otro" + username + "@example.com"}, "contrasena": {"clave"}}, http.StatusConflict)
-		post("/usuarios", url.Values{"nombre": {"otro" + username}, "email": {strings.ToUpper(userForm.Get("email"))}, "contrasena": {"clave"}}, http.StatusConflict)
-		post("/editoriales", url.Values{"nombre": {strings.Repeat("ñ", 256)}, "sede": {"Tandil"}}, http.StatusBadRequest)
-		autoresRepo := repository.NewAutorSQL(queries)
-		librosRepo := repository.NewLibroSQL(queries)
-		if _, err := logic.UpdateAutor(ctx, autoresRepo, librosRepo, authorID, authorName, "Argentina", time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC), "Biografía"); err == nil {
+		post(t, "/usuarios", url.Values{"nombre": {strings.ToUpper(username)}, "email": {"otro" + username + "@example.com"}, "contrasena": {"clave"}}, http.StatusConflict)
+		post(t, "/usuarios", url.Values{"nombre": {"otro" + username}, "email": {strings.ToUpper(userForm.Get("email"))}, "contrasena": {"clave"}}, http.StatusConflict)
+		post(t, "/editoriales", url.Values{"nombre": {strings.Repeat("ñ", 256)}, "sede": {"Tandil"}}, http.StatusBadRequest)
+		autoresRepo := repository.NewAutorSQL(conn)
+		if _, err := logic.UpdateAutor(ctx, autoresRepo, authorID, authorName, "Argentina", time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC), "Biografía"); err == nil {
 			t.Fatal("la capa de lógica aceptó un nacimiento futuro")
 		}
 		if _, err := conn.Exec("DELETE FROM libro WHERE titulo = $1 AND fecha_lanzamiento = DATE '2020-02-29'", title); err != nil {
@@ -247,65 +258,64 @@ func TestHTMLFragments(t *testing.T) {
 		}
 	})
 	t.Run("validaciones del servidor", func(t *testing.T) {
-		post("/editoriales", url.Values{"nombre": {"   "}, "sede": {"Tandil"}}, http.StatusBadRequest)
+		post(t, "/editoriales", url.Values{"nombre": {"   "}, "sede": {"Tandil"}}, http.StatusBadRequest)
 		bookForm.Set("fecha_lanzamiento", "1979-12-31")
-		if body := post("/libros", bookForm, http.StatusBadRequest); !strings.Contains(body, "5 años cumplidos") {
+		if body := post(t, "/libros", bookForm, http.StatusBadRequest); !strings.Contains(body, "5 años cumplidos") {
 			t.Fatal("falta el motivo de la cronología inválida")
 		}
-		autoresRepo := repository.NewAutorSQL(queries)
-		editorialesRepo := repository.NewEditorialSQL(queries)
-		librosRepo := repository.NewLibroSQL(queries)
-		if _, err := logic.UpdateLibro(ctx, librosRepo, autoresRepo, editorialesRepo, bookID, authorID, title, editorialID, time.Date(1979, 12, 31, 0, 0, 0, 0, time.UTC), 250); err == nil {
+		autoresRepo := repository.NewAutorSQL(conn)
+		librosRepo := repository.NewLibroSQL(conn)
+		if _, err := logic.UpdateLibro(ctx, librosRepo, bookID, authorID, title, editorialID, time.Date(1979, 12, 31, 0, 0, 0, 0, time.UTC), 250); err == nil {
 			t.Fatal("la capa de lógica permitió un libro anterior al nacimiento")
 		}
-		if _, err := logic.UpdateAutor(ctx, autoresRepo, librosRepo, authorID, authorName, "Argentina", time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC), "Biografía"); err == nil {
+		if _, err := logic.UpdateAutor(ctx, autoresRepo, authorID, authorName, "Argentina", time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC), "Biografía"); err == nil {
 			t.Fatal("la capa de lógica permitió invalidar libros al cambiar el autor")
 		}
 		// Se rechazan el nacimiento y el día anterior al quinto cumpleaños.
 		bookForm.Set("fecha_lanzamiento", "1980-01-15")
-		post("/libros", bookForm, http.StatusBadRequest)
+		post(t, "/libros", bookForm, http.StatusBadRequest)
 		bookForm.Set("fecha_lanzamiento", "1985-01-14")
-		post("/libros", bookForm, http.StatusBadRequest)
+		post(t, "/libros", bookForm, http.StatusBadRequest)
 		bookForm.Set("fecha_lanzamiento", "1985-01-15")
-		post("/libros", bookForm, http.StatusOK)
+		post(t, "/libros", bookForm, http.StatusOK)
 		if _, err := conn.Exec("DELETE FROM libro WHERE titulo = $1 AND fecha_lanzamiento = DATE '1985-01-15'", title); err != nil {
 			t.Fatal(err)
 		}
 		bookForm.Set("fecha_lanzamiento", "2020-01-15")
 		bookForm.Set("cantidad_paginas", "2147483648")
-		post("/libros", bookForm, http.StatusBadRequest)
+		post(t, "/libros", bookForm, http.StatusBadRequest)
 		bookForm.Set("cantidad_paginas", "250")
 		bookForm.Set("fecha_lanzamiento", "2099-01-15")
-		post("/libros", bookForm, http.StatusBadRequest)
+		post(t, "/libros", bookForm, http.StatusBadRequest)
 		bookForm.Set("fecha_lanzamiento", "2020-01-15")
 		bookForm.Set("id_autor", "2147483647")
-		post("/libros", bookForm, http.StatusConflict)
-		post("/editoriales?nombre=NoDebeUsarse&sede=Tandil", nil, http.StatusBadRequest)
-		request(http.MethodPost, "/editoriales", `{"nombre":"JSON"}`, "application/json", http.StatusBadRequest)
-		post("/editoriales", url.Values{"nombre": {strings.Repeat("x", 70<<10)}}, http.StatusBadRequest)
+		post(t, "/libros", bookForm, http.StatusConflict)
+		post(t, "/editoriales?nombre=NoDebeUsarse&sede=Tandil", nil, http.StatusBadRequest)
+		request(t, http.MethodPost, "/editoriales", `{"nombre":"JSON"}`, "application/json", http.StatusBadRequest)
+		post(t, "/editoriales", url.Values{"nombre": {strings.Repeat("x", 70<<10)}}, http.StatusBadRequest)
 	})
 	t.Run("rutas y borrado HTMX", func(t *testing.T) {
-		request(http.MethodGet, fmt.Sprintf("/libros/%d", bookID), "", "", http.StatusMethodNotAllowed)
-		request(http.MethodDelete, "/libros/no-es-id", "", "", http.StatusBadRequest)
-		request(http.MethodDelete, "/libros/2147483647", "", "", http.StatusNotFound)
-		post("/desconocida", nil, http.StatusNotFound)
-		request(http.MethodGet, "/no-existe", "", "", http.StatusNotFound)
-		if delBody := request(http.MethodDelete, fmt.Sprintf("/libros/%d", bookID), "", "", http.StatusOK); delBody != "" {
+		request(t, http.MethodGet, fmt.Sprintf("/libros/%d", bookID), "", "", http.StatusMethodNotAllowed)
+		request(t, http.MethodDelete, "/libros/no-es-id", "", "", http.StatusBadRequest)
+		request(t, http.MethodDelete, "/libros/2147483647", "", "", http.StatusNotFound)
+		post(t, "/desconocida", nil, http.StatusNotFound)
+		request(t, http.MethodGet, "/no-existe", "", "", http.StatusNotFound)
+		if delBody := request(t, http.MethodDelete, fmt.Sprintf("/libros/%d", bookID), "", "", http.StatusOK); delBody != "" {
 			t.Fatalf("el borrado debe devolver cuerpo vacío, se obtuvo: %q", delBody)
 		}
 		if _, err := queries.GetLibro(ctx, bookID); err != sql.ErrNoRows {
 			t.Fatalf("el libro no se eliminó: %v", err)
 		}
 		bookID = 0
-		if delBody := request(http.MethodDelete, fmt.Sprintf("/autores/%d", authorID), "", "", http.StatusOK); delBody != "" {
+		if delBody := request(t, http.MethodDelete, fmt.Sprintf("/autores/%d", authorID), "", "", http.StatusOK); delBody != "" {
 			t.Fatalf("el borrado debe devolver cuerpo vacío, se obtuvo: %q", delBody)
 		}
 		authorID = 0
-		if delBody := request(http.MethodDelete, fmt.Sprintf("/editoriales/%d", editorialID), "", "", http.StatusOK); delBody != "" {
+		if delBody := request(t, http.MethodDelete, fmt.Sprintf("/editoriales/%d", editorialID), "", "", http.StatusOK); delBody != "" {
 			t.Fatalf("el borrado debe devolver cuerpo vacío, se obtuvo: %q", delBody)
 		}
 		editorialID = 0
-		if delBody := request(http.MethodDelete, fmt.Sprintf("/usuarios/%d", userID), "", "", http.StatusOK); delBody != "" {
+		if delBody := request(t, http.MethodDelete, fmt.Sprintf("/usuarios/%d", userID), "", "", http.StatusOK); delBody != "" {
 			t.Fatalf("el borrado debe devolver cuerpo vacío, se obtuvo: %q", delBody)
 		}
 		userID = 0

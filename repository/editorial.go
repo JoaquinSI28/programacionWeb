@@ -67,13 +67,13 @@ func (r *EditorialSQL) List(ctx context.Context) ([]*logic.Editorial, error) {
 }
 
 func (r *EditorialSQL) Update(ctx context.Context, id int32, nombre, sede string) (*logic.Editorial, error) {
-	err := r.queries.UpdateEditorial(ctx, dbsqlc.UpdateEditorialParams{
+	_, err := r.queries.UpdateEditorial(ctx, dbsqlc.UpdateEditorialParams{
 		IDEditorial: id,
 		Nombre:      nombre,
 		Sede:        sede,
 	})
-	if err != nil {
-		return nil, errorPersistencia(err)
+	if err := errorDeEscritura(err, logic.ErrEditorialNoEncontrada); err != nil {
+		return nil, err
 	}
 
 	return &logic.Editorial{
@@ -84,7 +84,8 @@ func (r *EditorialSQL) Update(ctx context.Context, id int32, nombre, sede string
 }
 
 func (r *EditorialSQL) Delete(ctx context.Context, id int32) error {
-	return errorPersistencia(r.queries.DeleteEditorial(ctx, id))
+	_, err := r.queries.DeleteEditorial(ctx, id)
+	return errorDeEscritura(err, logic.ErrEditorialNoEncontrada)
 }
 
 var _ logic.EditorialRepository = (*EditorialSQL)(nil)

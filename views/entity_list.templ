@@ -1,80 +1,73 @@
 package views
 
-import (
-	"bookfly.com/logic"
-	"strconv"
-)
+import "strconv"
 
-templ DeleteForm(entity string, id int32, name string) {
-	<button type="button" class="delete-button" hx-delete={ "/" + entity + "/" + idString(id) } hx-target="closest li" hx-swap="outerHTML" aria-label={ "Eliminar " + name }>Eliminar</button>
+templ deleteButton(entity string, id int32, name string) {
+	<div class="row-action">
+		<button type="button" class="delete-button" hx-delete={ "/" + entity + "/" + idString(id) } hx-target="closest li" hx-swap="outerHTML" aria-label={ "Eliminar " + name }>Eliminar</button>
+		<div id={ entity + "-" + idString(id) + "-error" } aria-live="polite"></div>
+	</div>
 }
 
-templ LibroList(libros []*logic.Libro, autores map[int32]string, editoriales map[int32]string) {
-	<ul id="libros-list" class="entity-list" aria-label="Libros">
-		if len(libros) == 0 {
+templ EntityList(entity string, data PageData, afterCreate bool) {
+	<ul
+		id={ entity + "-list" }
+		class="entity-list"
+		aria-label={ entity }
+		if afterCreate {
+			hx-get={ "/formularios/" + entity }
+			hx-trigger="load"
+			hx-target={ "#" + entity + "-form" }
+			hx-swap="outerHTML"
+		}
+	>
+		switch entity {
+		case "libros":
 			<li class="empty">Todavía no hay libros. Agregá el primero.</li>
-		}
-		for _, libro := range libros {
-			<li class="entity-card">
-				<div class="entity-info">
-					<h3>{ libro.Titulo }</h3>
-					<p>{ autores[libro.IDAutor] + " · " + editoriales[libro.IDEditorial] }</p>
-					<p>{ strconv.FormatInt(int64(libro.CantidadPaginas), 10) + " páginas · Lanzamiento: " + libro.FechaLanzamiento.Format("2006-01-02") }</p>
-				</div>
-				@DeleteForm("libros", libro.IDLibro, libro.Titulo)
-			</li>
-		}
-	</ul>
-}
-
-templ AutorList(autores []*logic.Autor) {
-	<ul id="autores-list" class="entity-list" aria-label="Autores">
-		if len(autores) == 0 {
+			for _, libro := range data.Libros {
+				<li class="entity-card">
+					<div class="entity-info">
+						<h3>{ libro.Titulo }</h3>
+						<p>{ data.AutorNames[libro.IDAutor] + " · " + data.EditorNames[libro.IDEditorial] }</p>
+						<p>{ strconv.FormatInt(int64(libro.CantidadPaginas), 10) + " páginas · Lanzamiento: " + libro.FechaLanzamiento.Format("2006-01-02") }</p>
+					</div>
+					@deleteButton("libros", libro.IDLibro, libro.Titulo)
+				</li>
+			}
+		case "autores":
 			<li class="empty">Todavía no hay autores. Sumá uno para empezar.</li>
-		}
-		for _, autor := range autores {
-			<li class="entity-card">
-				<div class="entity-info">
-					<h3>{ autor.Nombre }</h3>
-					<p>{ autor.Pais + " · Nacimiento: " + autor.FechaNacimiento.Format("2006-01-02") }</p>
-					<p>{ autor.Biografia }</p>
-				</div>
-				@DeleteForm("autores", autor.IDAutor, autor.Nombre)
-			</li>
-		}
-	</ul>
-}
-
-templ EditorialList(editoriales []*logic.Editorial) {
-	<ul id="editoriales-list" class="entity-list" aria-label="Editoriales">
-		if len(editoriales) == 0 {
+			for _, autor := range data.Autores {
+				<li class="entity-card">
+					<div class="entity-info">
+						<h3>{ autor.Nombre }</h3>
+						<p>{ autor.Pais + " · Nacimiento: " + autor.FechaNacimiento.Format("2006-01-02") }</p>
+						<p>{ autor.Biografia }</p>
+					</div>
+					@deleteButton("autores", autor.IDAutor, autor.Nombre)
+				</li>
+			}
+		case "editoriales":
 			<li class="empty">Todavía no hay editoriales. Agregá una para tus libros.</li>
-		}
-		for _, editorial := range editoriales {
-			<li class="entity-card">
-				<div class="entity-info">
-					<h3>{ editorial.Nombre }</h3>
-					<p>{ "Sede: " + editorial.Sede }</p>
-				</div>
-				@DeleteForm("editoriales", editorial.IDEditorial, editorial.Nombre)
-			</li>
-		}
-	</ul>
-}
-
-templ UsuarioList(usuarios []*logic.Usuario) {
-	<ul id="usuarios-list" class="entity-list" aria-label="Usuarios">
-		if len(usuarios) == 0 {
+			for _, editorial := range data.Editoriales {
+				<li class="entity-card">
+					<div class="entity-info">
+						<h3>{ editorial.Nombre }</h3>
+						<p>{ "Sede: " + editorial.Sede }</p>
+					</div>
+					@deleteButton("editoriales", editorial.IDEditorial, editorial.Nombre)
+				</li>
+			}
+		case "usuarios":
 			<li class="empty">Todavía no hay usuarios registrados.</li>
-		}
-		for _, usuario := range usuarios {
-			<li class="entity-card">
-				<div class="entity-info">
-					<h3>{ usuario.Nombre }</h3>
-					<p>{ usuario.Email }</p>
-				</div>
-				@DeleteForm("usuarios", usuario.ID, usuario.Nombre)
-			</li>
+			for _, usuario := range data.Usuarios {
+				<li class="entity-card">
+					<div class="entity-info">
+						<h3>{ usuario.Nombre }</h3>
+						<p>{ usuario.Email }</p>
+					</div>
+					@deleteButton("usuarios", usuario.ID, usuario.Nombre)
+				</li>
+			}
 		}
 	</ul>
 }

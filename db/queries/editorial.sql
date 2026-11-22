@@ -11,11 +11,13 @@ WHERE id_editorial = $1;
 SELECT * FROM Editorial 
 ORDER BY nombre;
 
--- name: UpdateEditorial :exec
+-- name: UpdateEditorial :one
 UPDATE Editorial 
 SET nombre = $2, sede = $3
-WHERE id_editorial = $1;
+WHERE id_editorial = $1
+RETURNING id_editorial;
 
--- name: DeleteEditorial :exec
+-- name: DeleteEditorial :one
 DELETE FROM Editorial 
-WHERE id_editorial = $1;
+WHERE id_editorial = $1
+RETURNING id_editorial;

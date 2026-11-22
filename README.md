@@ -1,22 +1,46 @@
-# Programacion Web
-Aquí se realizaran entregas de trabajos prácticos para la materia
-Programación Web de la Universidad Nacional de la Provincia de Buenos Aires
-del curso 2026.
+# Programación Web · Bookfly
 
-**Para ejecutar la entrega actual**, ver [Ejecución del TP6](#ejecución-del-tp6).
+Proyecto de cursada de Programación Web, UNICEN, 2026. La rama `tp6` continúa la biblioteca del TP5. Permite agregar y eliminar libros, autores, editoriales y usuarios desde una página que Go y templ renderizan en el servidor. HTMX actualiza la lista que cambió.
 
-# Dominio
-Un registro de libros leídos será el tema principal de la app.
+## Ejecutar la entrega del TP6
 
-# Persistencia
+Se necesita Git, make y Docker iniciado con el comando `docker compose`. La primera construcción requiere conexión para descargar las imágenes y dependencias. El navegador también necesita acceso a jsDelivr para cargar HTMX.
+
+```bash
+git clone --branch tp6 --single-branch https://github.com/JoaquinSI28/programacionWeb.git
+cd programacionWeb
+make run-app
+```
+
+1. Esperá a que la terminal muestre **Bookfly disponible en**. El comando prepara una base limpia, genera el código de sqlc y templ, compila Go dentro de Docker y comprueba que PostgreSQL y la aplicación responden.
+2. Abrí en Safari o en otro navegador el enlace completo que imprime la terminal. Docker asigna un puerto libre en tu equipo. Mantené la terminal abierta mientras usás la biblioteca.
+3. Para terminar, presioná **Ctrl+C** en esa terminal. `make run-app` elimina los contenedores y el volumen del proyecto `bookfly-tp6` tanto al inicio como al salir. Los datos de esa ejecución son temporales.
+
+Para conservar una biblioteca entre sesiones, usá `make up`, consultá la dirección con `docker compose -p bookfly-tp6 port api 8080` y abrila con el prefijo `http://`. Detenela con `make stop`. Volver a usar `make run-app` o las pruebas sobre ese mismo proyecto borra su volumen.
+
+### Comprobar el funcionamiento
+
+Agregá un autor y una editorial. Elegilos en el formulario de libros y guardá un libro ya publicado, con una fecha en la que el autor tuviera al menos cinco años. El libro aparece en la lista sin recargar la página. Intentá borrar el autor mientras el libro lo referencia. El registro debe seguir visible con la explicación junto al botón. Borrá primero el libro y después el autor.
+
+Para ejecutar las pruebas de regresión, cerrá la aplicación con Ctrl+C y corré este comando desde la raíz del proyecto.
+
+```bash
+make test-all
+```
+
+`make test` ejecuta las pruebas de Go con PostgreSQL. `make test-hurl` recorre la aplicación por HTTP. `make test-all` ejecuta ambas suites. Cada una prepara su base y elimina su volumen al terminar. La guía del TP6 detalla qué observar en Safari en cada punto de la consigna, cómo verificar un alta duplicada y qué parte comprueba cada suite. [Guía de verificación del TP6](docs/TP6.md)
+
+## Dominio y persistencia
+
+Bookfly registra libros, autores, editoriales y usuarios. La relación de lectura entre un usuario y un libro se conserva en la capa de datos.
 
 La aplicación utiliza PostgreSQL como sistema de persistencia. El esquema de la base de datos se encuentra en `db/schema/schema.sql` y se monta en el contenedor de PostgreSQL para crear las tablas cuando se inicializa una base nueva.
 
-## Modelo de datos
+### Modelo de datos
 
 - `Autor`: almacena el nombre, país, fecha de nacimiento y biografía de cada autor.
 - `Editorial`: almacena el nombre y la sede de cada editorial.
-- `Usuario`: almacena el nombre de usuario, correo electrónico y contraseña. El nombre de usuario y el correo son únicos.
+- `Usuario`: almacena el nombre de usuario, correo electrónico y hash de la contraseña. El nombre de usuario y el correo son únicos.
 - `Libro`: almacena el título, fecha de lanzamiento, cantidad de páginas y sus relaciones con un autor y una editorial.
 - `Lee`: relaciona usuarios con libros y almacena el estado de lectura y la reseña. La combinación `id_usuario` e `id_libro` es única.
 
@@ -29,15 +53,20 @@ Usuario N ---- N Libro (a través de Lee)
 
 Las claves foráneas garantizan que un libro solo pueda referenciar autores y editoriales existentes, y que un registro de lectura solo pueda referenciar usuarios y libros existentes.
 
-## Acceso a los datos
+### Acceso a los datos
 
 Las consultas SQL se encuentran en `db/queries/`. sqlc las transforma en código Go dentro de `db/sqlc/`, que es una carpeta generada automáticamente y no se versiona. La configuración de esta generación está en `sqlc.yaml`.
 
 Docker Compose utiliza un volumen llamado `pgdata` para conservar los datos de PostgreSQL entre ejecuciones. Los comandos de pruebas eliminan ese volumen antes de comenzar y al finalizar porque los tests utilizan una base de datos temporal.
 
-> Las instrucciones de pruebas, los endpoints JSON y las aclaraciones que siguen corresponden a la rama `tp3`.
+## Etapas anteriores
 
-# Pruebas de persistencia
+Los comandos históricos se ejecutan en la rama indicada. El TP3 expone una API JSON, el TP4 incorpora la interfaz estática y el TP5 usa formularios HTML clásicos. Las guías de esas dos interfaces están en sus respectivas ramas. [Guía del TP4](https://github.com/JoaquinSI28/programacionWeb/blob/tp4/docs/TP4.md) · [Guía del TP5](https://github.com/JoaquinSI28/programacionWeb/blob/tp5/docs/TP5.md)
+
+<details>
+<summary>TP3 · Persistencia y API JSON</summary>
+
+### Pruebas de persistencia
 
 Solo es necesario clonar el repositorio, ubicarse en su carpeta raíz y ejecutar:
 
@@ -64,7 +93,7 @@ POSTGRES_PASSWORD=postgres
 El archivo `.env` es local y no debe subirse al repositorio.
 
 
-## Ejecución y pruebas del CRUD
+### Ejecución y pruebas del CRUD
 
 Se necesita Docker iniciado, Docker Compose y make. Para ejecutar las pruebas de persistencia con `make test` tambien se necesita Go 1.26.7 o superior. sqlc y Hurl se ejecutan dentro de Docker.
 
@@ -110,7 +139,7 @@ Para borrar los contenedores, imágenes y volúmenes del proyecto, incluidos los
 docker compose --profile test down --rmi all --volumes --remove-orphans
 ```
 
-### Endpoints
+#### Endpoints
 
 En este TP3 se exponen usuarios, autores, editoriales y libros. La relacion `Lee` queda en la capa de datos.
 
@@ -150,7 +179,7 @@ Libro (el autor y la editorial deben existir):
 
 Las respuestas incluyen los campos enviados y el `id` del registro. En usuarios no se devuelve la contraseña. Si no hay registros, el listado devuelve `[]`.
 
-### Validaciones y errores
+#### Validaciones y errores
 
 - Los nombres, el titulo, el pais, la biografia y la sede no pueden estar vacíos ni contener solo espacios.
 - El email debe tener un formato válido y la contraseña debe tener al menos 3 caracteres.
@@ -169,12 +198,15 @@ Los errores se devuelven como JSON, por ejemplo `{"error":"Usuario no encontrado
 | 409 | Nombre de usuario o email repetido, o conflicto con registros relacionados |
 | 500 | Error interno del servidor |
 
-### Aclaraciones
+#### Aclaraciones
 En esta entrega las contraseñas se almacenan en texto plano. Se optó por dejar el hashing de contraseñas y la autenticación para mas adelante.
 
-# Ejecución del TP5
+</details>
 
-En esta rama, Bookfly continúa la interfaz del TP4. El servidor Go consulta PostgreSQL mediante sqlc y usa componentes templ para mostrar los libros, autores, editoriales y usuarios en una página HTML. La relación `Lee` sigue en la capa de datos.
+<details>
+<summary>TP5 · Ejecución, formularios y pruebas</summary>
+
+En la rama `tp5`, Bookfly continúa la interfaz del TP4. El servidor Go consulta PostgreSQL mediante sqlc y usa componentes templ para mostrar los libros, autores, editoriales y usuarios en una página HTML. La relación `Lee` sigue en la capa de datos.
 
 Con Git, Docker Compose y make instalados y Docker iniciado, ejecutar desde una terminal:
 
@@ -188,7 +220,7 @@ Si ya se clonó la rama, alcanza con ejecutar `make run-app` desde la raíz. El 
 
 Abrir la dirección que aparece junto a **Bookfly disponible en**. Docker elige un puerto local disponible y la base de datos usa la red interna del proyecto. Al salir con **Ctrl+C** se eliminan los contenedores y el volumen del TP5, incluidos los datos de esa ejecución. Para trabajar conservando los datos entre sesiones, usar `make up` y `make stop`. En ese modo, `docker compose -p bookfly-tp5 port api 8080` muestra la dirección que se abre con HTTP.
 
-## Formularios y pruebas del TP5
+### Formularios y pruebas del TP5
 
 1. Agregar un autor y una editorial. Ambos aparecen como opciones en el formulario de libros.
 2. Crear un libro con esos datos. El formulario envía un POST y el servidor guarda el registro, responde con una redirección 303 y vuelve a mostrar la biblioteca mediante `GET /`.
@@ -207,21 +239,4 @@ make test-all
 
 Las pruebas crean y eliminan el volumen del proyecto.
 
-
-# Ejecución del TP6
-
-La rama `tp6` continúa el TP5 terminado en `f012f4f`. HTMX envía los formularios y actualiza las listas con fragmentos HTML generados por templ. El servidor devuelve HTTP 200 en las altas y una respuesta vacía 200 después del DELETE de una entidad.
-
-Con Docker iniciado, Docker Compose y make instalados, ejecutar desde la raíz del repositorio:
-
-```bash
-make run-app
-```
-
-El comando genera y compila dentro de Docker, espera a PostgreSQL y muestra **Bookfly disponible en** con el enlace local. Al presionar Ctrl+C se eliminan los contenedores y el volumen del proyecto `bookfly-tp6`, incluidos sus datos. Docker elige un puerto libre. Para conservar datos entre sesiones, usar `make up`, consultar la dirección con `docker compose -p bookfly-tp6 port api 8080` y detener con `make stop`.
-
-Crear un autor y una editorial, elegirlos al agregar un libro y comprobar que la lista se actualiza sin recargar la página. Los botones Eliminar usan DELETE y retiran el registro de la vista. Los errores se muestran en la página y conservan los datos del formulario. Las reglas de fechas, referencias, contraseñas y duplicados se conservan del TP5.
-
-HTMX 2.0.11 se carga mediante una etiqueta script remota con versión e integridad fijadas. Se necesita conexión al CDN para descargar esa biblioteca. La entrega contiene componentes templ, Go y CSS. Las pruebas de Go y Hurl se ejecutan con `make test-all`.
-
-El autor debe tener al menos 5 años cumplidos al lanzamiento del libro. Esta regla se comprueba al crear o modificar libros y al cambiar el nacimiento de un autor que tiene libros asociados.
+</details>

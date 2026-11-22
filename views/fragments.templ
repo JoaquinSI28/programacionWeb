@@ -1,51 +1,20 @@
 package views
 
-templ OperationMessage(message string) {
-	<div id="mensajes" role="status" aria-live="polite" hx-swap-oob="true">
-		if message != "" {
-			<p class="message error" role="alert">{ message }</p>
-		}
+templ OperationMessage(id, message string) {
+	<div id={ id } hx-swap-oob="true" aria-live="polite">
+		<p class="message error" role="alert">{ message }</p>
 	</div>
 }
 
-templ EntityList(entity string, data PageData) {
+templ EntityForm(entity string, data PageData) {
 	switch entity {
 	case "libros":
-		@LibroList(data.Libros, data.AutorNames, data.EditorNames)
+		@LibroForm(data)
 	case "autores":
-		@AutorList(data.Autores)
+		@AutorForm(data.Today)
 	case "editoriales":
-		@EditorialList(data.Editoriales)
+		@EditorialForm()
 	case "usuarios":
-		@UsuarioList(data.Usuarios)
-	}
-}
-
-templ CreateResponse(entity string, data PageData) {
-	@EntityList(entity, data)
-	@OperationMessage("")
-	switch entity {
-	case "libros":
-		<span id="libros-count" class="count" hx-swap-oob="true">{ countText(len(data.Libros)) }</span>
-		<div id="libros-form-box" hx-swap-oob="true">
-			@LibroForm(PageData{Today: data.Today, Autores: data.Autores, Editoriales: data.Editoriales})
-		</div>
-	case "autores":
-		<span id="autores-count" class="count" hx-swap-oob="true">{ countText(len(data.Autores)) }</span>
-		<div id="autores-form-box" hx-swap-oob="true">
-			@AutorForm(PageData{Today: data.Today})
-		</div>
-		@AutorSelectOOB(data)
-	case "editoriales":
-		<span id="editoriales-count" class="count" hx-swap-oob="true">{ countText(len(data.Editoriales)) }</span>
-		<div id="editoriales-form-box" hx-swap-oob="true">
-			@EditorialForm(PageData{})
-		</div>
-		@EditorialSelectOOB(data)
-	case "usuarios":
-		<span id="usuarios-count" class="count" hx-swap-oob="true">{ countText(len(data.Usuarios)) }</span>
-		<div id="usuarios-form-box" hx-swap-oob="true">
-			@UsuarioForm(PageData{})
-		</div>
+		@UsuarioForm()
 	}
 }

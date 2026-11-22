@@ -19,9 +19,8 @@ h1, h2 { font-family: Georgia, serif; font-weight: normal; line-height: 1.15; }
 h1 { font-size: clamp(2.3rem, 5vw, 3.7rem); margin: 0 0 1.2rem; letter-spacing: -.035em; }
 .intro > p:last-child { color: var(--muted); max-width: 650px; }
 section { border-top: 1px solid var(--line); padding: 2rem 0 3rem; }
-.section-heading { display: flex; justify-content: space-between; align-items: end; gap: 1rem; margin-bottom: 1.5rem; }
+.section-heading { margin-bottom: 1.5rem; }
 h2 { font-size: 2.1rem; margin: 0; }
-.count { font-size: .8rem; color: var(--muted); white-space: nowrap; }
 .workspace { display: grid; grid-template-columns: minmax(260px, 340px) minmax(0, 1fr); gap: 2rem; align-items: start; }
 form { padding: 1.5rem; background: #fffef9; border: 1px solid var(--line); border-radius: .65rem; }
 h3 { margin: 0 0 1.1rem; font-size: 1rem; }
@@ -41,16 +40,15 @@ button:disabled { opacity: .55; cursor: wait; }
 .entity-info { min-width: 0; overflow-wrap: anywhere; }
 .entity-info h3 { margin: 0 0 .3rem; font-family: Georgia, serif; font-size: 1.2rem; }
 .entity-info p { margin: .2rem 0; font-size: .85rem; color: var(--muted); white-space: pre-wrap; }
-.delete-button { flex-shrink: 0; background: transparent; color: #8c3c2c; border-color: #e0c7bf; padding: .4rem .7rem; }
+.row-action { max-width: 48%; text-align: right; }
+.row-action .message { text-align: left; }
+.delete-button { background: transparent; color: #8c3c2c; border-color: #e0c7bf; padding: .4rem .7rem; }
 .delete-button:hover { background: #fff1ed; }
+.empty:not(:only-child) { display: none; }
 .empty { padding: 3rem 1.5rem; border: 1px dashed #aab8ab; border-radius: .65rem; color: var(--muted); text-align: center; }
-.message { margin: 0; font-size: .85rem; overflow-wrap: anywhere; }
-.message:not(:empty) { padding: .8rem 1rem; margin-bottom: 1rem; border-radius: .3rem; background: #e9f0e5; }
+.message { margin: .75rem 0 0; padding: .6rem .8rem; border-radius: .3rem; font-size: .85rem; overflow-wrap: anywhere; }
 .message.error { color: #8c2e22; background: #fbece5; }
 footer { max-width: 1160px; margin: auto; padding: 1.5rem 2rem; border-top: 1px solid var(--line); font-family: Georgia, serif; display: flex; gap: 1rem; justify-content: space-between; }
 footer span { color: var(--muted); font: .8rem system-ui, sans-serif; }
 @media (max-width: 720px) { .header-content { align-items: start; flex-direction: column; gap: 1rem; padding: 1.2rem; } nav { gap: 1.2rem; } main { padding: 0 1.2rem 2rem; } .intro { padding: 2.5rem 0 2rem; } .workspace { grid-template-columns: 1fr; gap: 1.25rem; } .entity-card { padding: 1rem; } footer { padding: 1.2rem; } }
 @media (prefers-reduced-motion: reduce) { html { scroll-behavior: auto; } }
-
-form.delete-form { padding: 0; margin: 0; border: 0; background: transparent; flex-shrink: 0; }
-form.delete-form button { width: auto; margin: 0; }

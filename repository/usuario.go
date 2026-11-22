@@ -73,11 +73,8 @@ func (r *UsuarioSQL) List(ctx context.Context) ([]*logic.Usuario, error) {
 }
 
 func (r *UsuarioSQL) Delete(ctx context.Context, id int32) error {
-	err := r.queries.DeleteUsuario(ctx, id)
-	if err != nil {
-		return errorPersistencia(err)
-	}
-	return nil
+	_, err := r.queries.DeleteUsuario(ctx, id)
+	return errorDeEscritura(err, logic.ErrUsuarioNoEncontrado)
 }
 
 func (r *UsuarioSQL) Update(ctx context.Context, id int32, nombre, email, contrasena string) (*logic.Usuario, error) {
@@ -85,14 +82,14 @@ func (r *UsuarioSQL) Update(ctx context.Context, id int32, nombre, email, contra
 	if err != nil {
 		return nil, err
 	}
-	err = r.queries.UpdateUsuario(ctx, dbsqlc.UpdateUsuarioParams{
+	_, err = r.queries.UpdateUsuario(ctx, dbsqlc.UpdateUsuarioParams{
 		IDUsuario:      id,
 		NombreUsuario:  nombre,
 		Mail:           email,
 		ContrasenaHash: hash,
 	})
-	if err != nil {
-		return nil, errorPersistencia(err)
+	if err := errorDeEscritura(err, logic.ErrUsuarioNoEncontrado); err != nil {
+		return nil, err
 	}
 
 	return &logic.Usuario{

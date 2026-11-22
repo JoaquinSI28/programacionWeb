@@ -14,14 +14,16 @@ import (
 	_ "github.com/lib/pq"
 )
 
-func newQueries(t *testing.T) *db.Queries {
-	t.Helper()
-
-	dsn := fmt.Sprintf("postgresql://%s:%s@localhost:5432/%s?sslmode=disable",
+func testDSN() string {
+	return fmt.Sprintf("postgresql://%s:%s@localhost:5432/%s?sslmode=disable",
 		envOrDefault("POSTGRES_USER", "postgres"),
 		envOrDefault("POSTGRES_PASSWORD", "postgres"),
 		envOrDefault("POSTGRES_DB", "prueba"))
-	conn, err := sql.Open("postgres", dsn)
+}
+
+func newQueries(t *testing.T) *db.Queries {
+	t.Helper()
+	conn, err := sql.Open("postgres", testDSN())
 	if err != nil {
 		t.Fatalf("No se pudo conectar: %v", err)
 	}
@@ -63,7 +65,7 @@ func TestUsuario_CRUD(t *testing.T) {
 		Mail:           "mod@example.com",
 		ContrasenaHash: "otro_hash_de_prueba",
 	}
-	err = queries.UpdateUsuario(ctx, updateParams)
+	_, err = queries.UpdateUsuario(ctx, updateParams)
 	if err != nil {
 		t.Fatalf("Fallo en UpdateUsuario: %v", err)
 	}
@@ -87,7 +89,7 @@ func TestUsuario_CRUD(t *testing.T) {
 	t.Log("Usuario encontrado y validado en la lista exitosamente")
 
 	// 5. DeleteUsuario
-	err = queries.DeleteUsuario(ctx, user.IDUsuario)
+	_, err = queries.DeleteUsuario(ctx, user.IDUsuario)
 	if err != nil {
 		t.Fatalf("Fallo en DeleteUsuario: %v", err)
 	}
@@ -158,7 +160,7 @@ func TestLibro_CRUD(t *testing.T) {
 		FechaLanzamiento: createParams.FechaLanzamiento,
 		CantidadPaginas:  300,
 	}
-	if err = queries.UpdateLibro(ctx, updateParams); err != nil {
+	if _, err = queries.UpdateLibro(ctx, updateParams); err != nil {
 		t.Fatalf("Fallo en UpdateLibro: %v", err)
 	}
 	t.Log("Libro actualizado exitosamente")
@@ -179,7 +181,7 @@ func TestLibro_CRUD(t *testing.T) {
 	}
 	t.Log("Libro encontrado y validado en la lista exitosamente")
 
-	if err = queries.DeleteLibro(ctx, libro.IDLibro); err != nil {
+	if _, err = queries.DeleteLibro(ctx, libro.IDLibro); err != nil {
 		t.Fatalf("Fallo en DeleteLibro: %v", err)
 	}
 	t.Log("Libro eliminado exitosamente")
@@ -200,8 +202,7 @@ func envOrDefault(name, fallback string) string {
 
 func TestMigracionDeContrasenas(t *testing.T) {
 	ctx := context.Background()
-	conn, err := sql.Open("postgres", fmt.Sprintf("postgresql://%s:%s@localhost:5432/%s?sslmode=disable",
-		envOrDefault("POSTGRES_USER", "postgres"), envOrDefault("POSTGRES_PASSWORD", "postgres"), envOrDefault("POSTGRES_DB", "prueba")))
+	conn, err := sql.Open("postgres", testDSN())
 	if err != nil {
 		t.Fatal(err)
 	}
