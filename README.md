@@ -217,7 +217,7 @@ Para registrar una publicación, el autor debe haber cumplido cinco años en la 
 
 ## Cómo ejecutar Bookfly
 
-Necesitás Git, make y Docker con Compose. Iniciá Docker y ejecutá lo siguiente en una terminal. Si ya tenés la rama `tp6` en tu equipo, alcanza con ejecutar el último comando desde la raíz del repositorio.
+Para ejecutar esta versión necesitás Git, Bash, make y Docker con Compose. Iniciá Docker y ejecutá lo siguiente en una terminal. Si ya tenés la rama `tp6` en tu equipo, alcanza con ejecutar el último comando desde la raíz del repositorio.
 
 ```bash
 git clone --branch tp6 --single-branch https://github.com/JoaquinSI28/programacionWeb.git
@@ -227,7 +227,7 @@ make run-app
 
 Cuando aparezca **Bookfly disponible en**, abrí el enlace completo que imprime la terminal. El puerto puede cambiar entre ejecuciones. Docker se encarga de generar el código de sqlc y templ, compilar la aplicación y esperar a que PostgreSQL y el servidor estén listos. La primera construcción necesita conexión para descargar las dependencias. La página carga HTMX desde jsDelivr.
 
-**Esta forma de arranque usa una base temporal.** Al empezar, `make run-app` borra el volumen anterior de ese proyecto de Docker. Dejá la terminal abierta mientras usás Bookfly y presioná **Ctrl+C** para cerrar y eliminar los datos de la sesión.
+**Esta forma de arranque usa una base temporal.** Al empezar, `make run-app` borra el volumen anterior de ese proyecto de Docker. Dejá la terminal abierta mientras usás Bookfly y presioná **Ctrl+C** para cerrar y eliminar los datos de la sesión. Si al final aparece `Error 130` después de que Docker informa que eliminó los contenedores y el volumen, ese código corresponde a la interrupción con Ctrl+C.
 
 ### Guardar el catálogo entre sesiones
 
@@ -242,8 +242,6 @@ El segundo comando muestra la dirección y el puerto. Abrí esa dirección con e
 
 ### Primeros pasos y pruebas
 
-Empezá por **Autores** y **Editoriales**. Cuando guardes el primero de cada uno, los vas a poder elegir en **Agregar un libro**. La guía muestra cómo cargar una edición, reconocer un duplicado y resolver un borrado bloqueado. [Recorrido por el catálogo](docs/Documentacion.md#recorrido-por-el-catálogo)
+Empezá por **Autores** y **Editoriales**. Después de guardar un autor y una editorial, elegilos en **Agregar un libro**. La guía muestra cómo cargar una edición, reconocer un duplicado y resolver un borrado bloqueado. [Recorrido por el catálogo](docs/Documentacion.md#recorrido-por-el-catálogo)
 
 Para correr todas las pruebas desde la raíz, ejecutá `COMPOSE_PROJECT_NAME=bookfly-pruebas make test-all`. Ese nombre reserva una base para las pruebas, que se elimina al terminar. [Qué cubre cada prueba](docs/Documentacion.md#pruebas)
-
-La guía de la versión anterior está en la [rama tp5](https://github.com/JoaquinSI28/programacionWeb/blob/tp5/docs/TP5.md).

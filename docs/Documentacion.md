@@ -13,7 +13,9 @@ La página reúne libros, autores, editoriales y usuarios. Podés pasar de una s
 
 ### Ver qué intercambia la página con el servidor
 
-Abrí la pestaña **Red** de las herramientas de desarrollo y recargá la página una vez. La solicitud `GET /` trae el documento completo. Mantené el registro de red a la vista al agregar o eliminar una editorial.
+Abrí la pestaña **Red** de las herramientas de desarrollo y recargá la página una vez. La solicitud `GET /` trae el documento completo. En la página se carga HTMX desde jsDelivr. Si los botones dejan de actualizar las listas, comprobá que el archivo `htmx.min.js` esté disponible. [Plantilla de la página](../views/layout.templ)
+
+Con el registro de red abierto, agregá una editorial y luego eliminala. Abrí cada solicitud y mirá su respuesta. Durante esas dos acciones debe haber una sola carga de tipo **Documento**, la que hiciste al principio.
 
 | Acción | Solicitud | Qué se ve en la respuesta |
 | --- | --- | --- |
@@ -22,7 +24,7 @@ Abrí la pestaña **Red** de las herramientas de desarrollo y recargá la págin
 | Eliminar una editorial usada por un libro | `DELETE /editoriales/{id}` | Estado 409 y un mensaje junto al botón de esa editorial. |
 | Eliminar una editorial sin libros | `DELETE /editoriales/{id}` | Estado 200 con cuerpo vacío. HTMX retira la fila correspondiente. |
 
-Durante estas operaciones la página sigue abierta. También vas a ver solicitudes para renovar el formulario después de un alta o actualizar las opciones del libro cuando cambian los autores y las editoriales. Cada una trae solo el fragmento de HTML que se necesita.
+Después de un alta vas a ver otra solicitud, por ejemplo `GET /formularios/editoriales`, que trae el formulario vacío. Al cambiar las editoriales también se consulta `GET /opciones/editoriales` para renovar el selector del libro. El título y los demás campos que estabas completando siguen en la página.
 
 ## Reglas del catálogo
 
@@ -45,7 +47,7 @@ Después del alta, el servidor devuelve la lista actualizada como HTML generado 
 
 ## Pruebas
 
-Desde la raíz del proyecto podés ejecutar cualquiera de estos comandos. Cada prueba prepara y elimina su propia base dentro del proyecto de Docker indicado.
+Ejecutá estos comandos desde la raíz. Las pruebas de Go y las de Hurl preparan una base limpia al comenzar y eliminan el volumen al terminar. El nombre `bookfly-pruebas` las mantiene separadas del catálogo que guardaste con `bookfly-biblioteca`.
 
 | Comando | Qué comprueba |
 | --- | --- |
