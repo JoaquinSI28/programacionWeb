@@ -2,6 +2,14 @@
 
 Bookfly es un catálogo de libros. Cada edición tiene un autor y una editorial. Desde la misma página podés cargar esos datos, registrar usuarios y eliminar registros. Al guardar un cambio se actualiza la sección correspondiente y podés seguir trabajando en las demás.
 
+## TP6 · Altas y bajas sin recargar la página
+
+En el TP5, guardar un formulario te llevaba de vuelta al catálogo mediante una redirección. En el TP6, Go y templ siguen generando el HTML y HTMX actualiza la página que ya tenés abierta. Por ejemplo, al guardar una editorial, `POST /editoriales` devuelve la lista de editoriales con la nueva entrada. Al eliminarla, `DELETE /editoriales/{id}` responde con el cuerpo vacío y desaparece esa fila.
+
+Podés verlo mientras cargás un libro. Escribí el título y, si falta la editorial, agregala desde **Editoriales**. Cuando vuelvas al formulario de libros, vas a encontrar el título tal como lo dejaste y la nueva editorial entre las opciones. Una vez guardado el libro, si intentás eliminar esa editorial, aparece un aviso junto al botón **Eliminar** que te indica que primero tenés que borrar el libro.
+
+Para registrar una publicación, el autor debe haber cumplido cinco años en la fecha de lanzamiento. Si cargás una fecha anterior a ese cumpleaños, el formulario conserva los datos para que puedas corregirla. [Recorrido y reglas del catálogo](docs/Documentacion.md)
+
 ## Cómo ejecutar Bookfly
 
 Necesitás Git, make y Docker con Compose. Iniciá Docker y ejecutá lo siguiente en una terminal. Si ya tenés la rama `tp6` en tu equipo, alcanza con ejecutar el último comando desde la raíz del repositorio.
@@ -29,9 +37,9 @@ El segundo comando muestra la dirección y el puerto. Abrí esa dirección con e
 
 ### Primeros pasos y pruebas
 
-Empezá por **Autores** y **Editoriales**. Cuando guardes el primero de cada uno, los vas a poder elegir en **Agregar un libro**. La guía muestra cómo cargar una edición, reconocer un duplicado y resolver un borrado bloqueado. [Recorrido por el catálogo](docs/TP6.md#recorrido-por-el-catálogo)
+Empezá por **Autores** y **Editoriales**. Cuando guardes el primero de cada uno, los vas a poder elegir en **Agregar un libro**. La guía muestra cómo cargar una edición, reconocer un duplicado y resolver un borrado bloqueado. [Recorrido por el catálogo](docs/Documentacion.md#recorrido-por-el-catálogo)
 
-Para correr todas las pruebas desde la raíz, ejecutá `COMPOSE_PROJECT_NAME=bookfly-pruebas make test-all`. Ese nombre reserva una base para las pruebas, que se elimina al terminar. [Qué cubre cada prueba](docs/TP6.md#pruebas)
+Para correr todas las pruebas desde la raíz, ejecutá `COMPOSE_PROJECT_NAME=bookfly-pruebas make test-all`. Ese nombre reserva una base para las pruebas, que se elimina al terminar. [Qué cubre cada prueba](docs/Documentacion.md#pruebas)
 
 ## Dominio y persistencia
 
