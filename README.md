@@ -1,10 +1,10 @@
-# Programación Web · Bookfly
+# Bookfly · Programación Web UNICEN
 
-Proyecto de cursada de Programación Web, UNICEN, 2026. La rama `tp6` continúa la biblioteca del TP5. Permite agregar y eliminar libros, autores, editoriales y usuarios desde una página que Go y templ renderizan en el servidor. HTMX actualiza la lista que cambió.
+Bookfly es un catálogo de libros. Cada edición tiene un autor y una editorial. Desde la misma página podés cargar esos datos, registrar usuarios y eliminar registros. Al guardar un cambio se actualiza la sección correspondiente y podés seguir trabajando en las demás.
 
-## Ejecutar la entrega del TP6
+## Cómo ejecutar Bookfly
 
-Se necesita Git, make y Docker iniciado con el comando `docker compose`. La primera construcción requiere conexión para descargar las imágenes y dependencias. El navegador también necesita acceso a jsDelivr para cargar HTMX.
+Necesitás Git, make y Docker con Compose. Iniciá Docker y ejecutá lo siguiente en una terminal. Si ya tenés la rama `tp6` en tu equipo, alcanza con ejecutar el último comando desde la raíz del repositorio.
 
 ```bash
 git clone --branch tp6 --single-branch https://github.com/JoaquinSI28/programacionWeb.git
@@ -12,23 +12,26 @@ cd programacionWeb
 make run-app
 ```
 
-1. Esperá a que la terminal muestre **Bookfly disponible en**. El comando prepara una base limpia, genera el código de sqlc y templ, compila Go dentro de Docker y comprueba que PostgreSQL y la aplicación responden.
-2. Abrí en Safari o en otro navegador el enlace completo que imprime la terminal. Docker asigna un puerto libre en tu equipo. Mantené la terminal abierta mientras usás la biblioteca.
-3. Para terminar, presioná **Ctrl+C** en esa terminal. `make run-app` elimina los contenedores y el volumen del proyecto `bookfly-tp6` tanto al inicio como al salir. Los datos de esa ejecución son temporales.
+Cuando aparezca **Bookfly disponible en**, abrí el enlace completo que imprime la terminal. El puerto puede cambiar entre ejecuciones. Docker se encarga de generar el código de sqlc y templ, compilar la aplicación y esperar a que PostgreSQL y el servidor estén listos. La primera construcción necesita conexión para descargar las dependencias. La página carga HTMX desde jsDelivr.
 
-Para conservar una biblioteca entre sesiones, usá `make up`, consultá la dirección con `docker compose -p bookfly-tp6 port api 8080` y abrila con el prefijo `http://`. Detenela con `make stop`. Volver a usar `make run-app` o las pruebas sobre ese mismo proyecto borra su volumen.
+**Esta forma de arranque usa una base temporal.** Al empezar, `make run-app` borra el volumen anterior de ese proyecto de Docker. Dejá la terminal abierta mientras usás Bookfly y presioná **Ctrl+C** para cerrar y eliminar los datos de la sesión.
 
-### Comprobar el funcionamiento
+### Guardar el catálogo entre sesiones
 
-Agregá un autor y una editorial. Elegilos en el formulario de libros y guardá un libro ya publicado, con una fecha en la que el autor tuviera al menos cinco años. El libro aparece en la lista sin recargar la página. Intentá borrar el autor mientras el libro lo referencia. El registro debe seguir visible con la explicación junto al botón. Borrá primero el libro y después el autor.
-
-Para ejecutar las pruebas de regresión, cerrá la aplicación con Ctrl+C y corré este comando desde la raíz del proyecto.
+Usá un proyecto de Docker con otro nombre para que el catálogo quede separado de las ejecuciones temporales.
 
 ```bash
-make test-all
+COMPOSE_PROJECT_NAME=bookfly-biblioteca make up
+docker compose -p bookfly-biblioteca port api 8080
 ```
 
-`make test` ejecuta las pruebas de Go con PostgreSQL. `make test-hurl` recorre la aplicación por HTTP. `make test-all` ejecuta ambas suites. Cada una prepara su base y elimina su volumen al terminar. La guía del TP6 detalla qué observar en Safari en cada punto de la consigna, cómo verificar un alta duplicada y qué parte comprueba cada suite. [Guía de verificación del TP6](docs/TP6.md)
+El segundo comando muestra la dirección y el puerto. Abrí esa dirección con el prefijo `http://`. Para cerrar, ejecutá `COMPOSE_PROJECT_NAME=bookfly-biblioteca make stop`. La próxima vez que inicies con el mismo nombre, vas a encontrar tus datos.
+
+### Primeros pasos y pruebas
+
+Empezá por **Autores** y **Editoriales**. Cuando guardes el primero de cada uno, los vas a poder elegir en **Agregar un libro**. La guía muestra cómo cargar una edición, reconocer un duplicado y resolver un borrado bloqueado. [Recorrido por el catálogo](docs/TP6.md#recorrido-por-el-catálogo)
+
+Para correr todas las pruebas desde la raíz, ejecutá `COMPOSE_PROJECT_NAME=bookfly-pruebas make test-all`. Ese nombre reserva una base para las pruebas, que se elimina al terminar. [Qué cubre cada prueba](docs/TP6.md#pruebas)
 
 ## Dominio y persistencia
 
