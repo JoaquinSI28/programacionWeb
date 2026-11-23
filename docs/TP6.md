@@ -4,7 +4,7 @@ Bookfly parte de la interfaz templ de la rama `tp5`. El navegador recibe la bibl
 
 ## Los cuatro puntos de cursada
 
-La consigna es *Trabajo de Cursada: Interfaces Reactivas con HTMX*, páginas 2 y 3 de `tp6.pdf`. La clase de presentación dinámica muestra la instalación de HTMX 4.0.0, los atributos de los formularios y las respuestas parciales en las páginas 42–45 y 59–61 de `10-view-dynamic.pdf`. [Material de la cátedra](https://programacion-web-slides.netlify.app/10-view-dynamic/)
+La consigna es *Trabajo de Cursada: Interfaces Reactivas con HTMX*, páginas 2 y 3 de `tp6.pdf`. La clase de presentación dinámica muestra la instalación de HTMX 4.0.0, los atributos y las respuestas parciales en las diapositivas 38–45 y 54–58 de `10-view-dynamic.pdf`. [Material de la cátedra](https://programacion-web-slides.netlify.app/10-view-dynamic/)
 
 | Punto | Dónde se implementa | Qué comprobar |
 | --- | --- | --- |
@@ -27,7 +27,7 @@ Con `make run-app` en ejecución, abrí la dirección que indica la terminal. Pa
 ## Cómo está organizado el proyecto
 
 - **Presentación.** Go usa `net/http` para las rutas y componentes templ para la página, las listas y los formularios. Después de un alta, HTMX pide el formulario vacío de esa entidad. Cuando cambian los autores o editoriales pide las opciones del selector correspondiente. Los demás campos del borrador permanecen en la página y una selección sigue vigente mientras exista su registro. Los errores de alta se muestran en el formulario, y los de baja junto al registro que los originó. [Vistas](../views) · [Handlers](../API/web.go)
-- **Lógica y persistencia.** El handler interpreta el formulario y delega las reglas del dominio en `logic`. Los repositorios escriben y consultan PostgreSQL a través de sqlc. Las claves foráneas protegen las relaciones de libros y lecturas. La composición de componentes y el acceso con sqlc se explican en `09-view-static.pdf`, páginas 15–20 y 30–35. La separación entre handler, lógica y repositorio se desarrolla en `07-logic.pdf`, páginas 13–15. [Lógica](../logic) · [Repositorios](../repository) · [Consultas](../db/queries)
+- **Lógica y persistencia.** El handler interpreta el formulario y delega las reglas del dominio en `logic`. Los casos de uso que cruzan entidades (`CreateLibro`, `UpdateLibro`, `UpdateAutor`) aplican la regla de edad dentro de `logic` coordinando los repositorios a través del contrato `UnitOfWork` (`logic/uow.go`). Los repositorios (`repository`) escriben y consultan PostgreSQL mediante sqlc y proveen la implementación transaccional `SQLUnitOfWork`. Las claves foráneas y los índices únicos protegen las relaciones e identidades del catálogo. La composición de componentes y el acceso con sqlc se explican en `09-view-static.pdf` (diapositivas 13–21 y 26–33); la separación entre handler, lógica y repositorio en `07-logic.pdf` (diapositivas 11–13); y el patrón Unit of Work y pruebas con mocks en `12-diseño.pdf` (diapositivas 31–32 y 37–40). [Lógica](../logic) · [Repositorios](../repository) · [Consultas](../db/queries)
 - **Herramientas.** Los dos módulos externos de Go declarados en `go.mod` son templ y el controlador PostgreSQL `lib/pq`. El navegador descarga HTMX desde el CDN. Los archivos que componen la interfaz son fuentes templ y CSS. La construcción genera el código de sqlc y templ dentro de la imagen. [go.mod](../go.mod) · [Dockerfile](../Dockerfile)
 
 Después de un alta, el evento `load` de la nueva lista pide el formulario vacío. Los selectores del libro escuchan `htmx:after:request` en la sección de autores o editoriales y vuelven a pedir sus opciones con el ID elegido. Escuchar en esas secciones con los modificadores `from` y `target` es una decisión de Bookfly para preservar el borrador. El navegador obtiene tanto el formulario como las opciones en HTML. [Listas](../views/entity_list.templ) · [Selectores](../views/entity_form.templ)
@@ -43,7 +43,7 @@ Después de un alta, el evento `load` de la nueva lista pide el formulario vací
 | `GET /opciones/autores` y `GET /opciones/editoriales` | Las opciones del selector correspondiente. El ID elegido se envía como parámetro para mantener la selección si existe. |
 | `GET /salud` | Un 204 cuando el servidor puede consultar PostgreSQL. Docker lo usa durante el arranque. |
 
-`<entidad>` representa `libros`, `autores`, `editoriales` o `usuarios`. Un dato inválido devuelve 400, un registro ausente devuelve 404 y un duplicado o conflicto de referencias devuelve 409. En esos casos el servidor devuelve un aviso con `hx-swap-oob` y el identificador del formulario o la fila. HTMX coloca el aviso allí y conserva el registro y los datos que el usuario estaba escribiendo. La clase de presentación dinámica ilustra ese intercambio en las páginas 53–54 del PDF. [Rutas y respuestas](../API/web.go)
+`<entidad>` representa `libros`, `autores`, `editoriales` o `usuarios`. Un dato inválido devuelve 400, un registro ausente devuelve 404 y un duplicado o conflicto de referencias devuelve 409. En esos casos el servidor devuelve un aviso con `hx-swap-oob` y el identificador del formulario o la fila. HTMX coloca el aviso allí y conserva el registro y los datos que el usuario estaba escribiendo. La clase de presentación dinámica ilustra ese intercambio en las diapositivas 48–49 (páginas 60–61 del PDF) de `10-view-dynamic.pdf`. [Rutas y respuestas](../API/web.go)
 
 ### Reglas de la biblioteca
 
@@ -57,9 +57,9 @@ El TP6 pide altas y bajas parciales. Bookfly conserva los criterios de identidad
 | Se repite un usuario | Coincide el nombre de usuario o el correo. Cada campo es único por separado. |
 | Se borra un registro referenciado | Primero hay que eliminar los registros que lo utilizan. |
 
-Para reconocer duplicados, se ignoran mayúsculas, espacios de los extremos y espacios repetidos. PostgreSQL comprueba la unicidad al escribir, incluso si dos clientes envían altas equivalentes a la vez. El nacimiento y el lanzamiento admiten hasta el día de hoy en Argentina. Una publicación es válida desde el quinto cumpleaños del autor. Para el 29 de febrero, el quinto aniversario se toma el 28 de febrero. El servidor valida los campos obligatorios y las fechas. Al guardar un libro o modificar el nacimiento de un autor, la aplicación consulta los datos y comprueba la edad dentro de la misma transacción de PostgreSQL que realiza la escritura. Si dos operaciones simultáneas entran en conflicto, la aplicación vuelve a comprobar la regla con los datos actualizados. Esta validación cubre las escrituras que pasan por los repositorios de Bookfly.
+Para reconocer duplicados, se ignoran mayúsculas, espacios de los extremos y espacios repetidos. PostgreSQL comprueba la unicidad al escribir, incluso si dos clientes envían altas equivalentes a la vez, y `repository/errors.go` traduce esos errores de base de datos a errores de dominio (`03-data.pdf`, diapositivas 4 y 14). El nacimiento y el lanzamiento admiten hasta el día de hoy en Argentina. Una publicación es válida desde el quinto cumpleaños del autor. Para el 29 de febrero, el quinto aniversario se toma el 28 de febrero. El servidor valida los campos obligatorios y las fechas en `logic`. Al guardar un libro o modificar el nacimiento de un autor, `logic` consulta los datos relacionados y ejecuta `ValidarEdadAlLanzamiento` dentro de un `UnitOfWork`, sin acoplarse a `database/sql`. En producción, `repository.SQLUnitOfWork` ejecuta esa unidad dentro de una transacción `SERIALIZABLE` de PostgreSQL y reintenta si dos operaciones simultáneas entran en conflicto (`40001`). En pruebas unitarias (`logic/reglas_test.go`), un mock de `UnitOfWork` permite verificar la regla sin levantar base de datos.
 
-Las consultas de actualización y borrado usan `RETURNING` con `:one` de sqlc. Así el repositorio puede avisar si el ID ya fue eliminado. La clase de mappers describe esta forma de obtener una fila en la página 11 de `05-mappersORM.pdf`.
+Las consultas de actualización y borrado usan `RETURNING` con `:one` de sqlc. Así el repositorio puede avisar si el ID ya fue eliminado. La clase de mappers describe esta forma de obtener una fila en la diapositiva 11 de `04-mappersORM.pdf`.
 
 Al iniciar sobre un volumen conservado, la aplicación verifica que puede crear los índices de unicidad. Si los datos anteriores contienen duplicados, el arranque informa el conflicto y conserva los registros. Para reutilizar ese volumen hay que resolver el duplicado antes de volver a iniciar. [Reglas de PostgreSQL](../db/migrations/reglas.sql)
 
@@ -67,11 +67,20 @@ Al iniciar sobre un volumen conservado, la aplicación verifica que puede crear 
 
 | Comando desde la raíz | Qué verifica |
 | --- | --- |
-| `make test` | Ejecuta las pruebas Go con PostgreSQL. Incluye altas simultáneas equivalentes, bajas simultáneas y conflictos entre un lanzamiento y un cambio de nacimiento. [Pruebas de datos](../db/db_test.go) · [Concurrencia y migración](../db/reglas_test.go) · [Pruebas web](../API/web_test.go) |
+| `make test` | Ejecuta las pruebas Go unitarias (con mocks en `logic`) y de integración con PostgreSQL. Incluye la regla de edad mínima aislada en `logic`, altas simultáneas equivalentes, bajas simultáneas y conflictos entre un lanzamiento y un cambio de nacimiento. [Pruebas unitarias de lógica](../logic/reglas_test.go) · [Pruebas de datos](../db/db_test.go) · [Concurrencia y migración](../db/reglas_test.go) · [Pruebas web](../API/web_test.go) |
 | `make test-hurl` | Levanta la aplicación y envía peticiones HTTP reales para verificar contenido HTML, estados, altas y borrados. [Secuencia Hurl](../requests.hurl) |
 | `make test-all` | Ejecuta ambas suites en orden y devuelve error si alguna falla. [Makefile](../Makefile) |
 
 Las pruebas y `make run-app` eliminan los contenedores y el volumen del proyecto que usan. Si ya tenés datos guardados con `make up`, podés aislar las pruebas con `COMPOSE_PROJECT_NAME=bookfly-tp6-pruebas make test-all`. El recorrido en Safari comprueba además que HTMX cargó desde el CDN y que el navegador aplicó cada respuesta en el lugar esperado.
+
+### Resultado de la verificación del 23 de noviembre de 2026
+
+Se refactorizó la regla de edad mínima al lanzamiento hacia `logic` usando el patrón `UnitOfWork` (`logic/uow.go` y `repository/transaccion.go`), dejando a `repository/autor.go` y `repository/libro.go` como adaptadores puros de persistencia y sumando pruebas unitarias de dominio con mocks.
+
+| Prueba ejecutada | Resultado observado |
+| --- | --- |
+| `go test ./logic -v` | Pasaron los 6 casos unitarios de `TestReglaEdadMinimaEnLogicConMocks` sin PostgreSQL ni servidor HTTP. |
+| `make test-all` | Pasaron todas las pruebas Go contra PostgreSQL 15 (incluyendo concurrencia `SERIALIZABLE` en `db/reglas_test.go` y `API/web_test.go`) y las 22 solicitudes de `requests.hurl`. |
 
 ### Resultado de la verificación del 22 de noviembre de 2026
 

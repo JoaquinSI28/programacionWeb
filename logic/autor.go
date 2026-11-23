@@ -60,11 +60,29 @@ func GetAutores(ctx context.Context, repo AutorRepository) ([]*Autor, error) {
 	return autores, nil
 }
 
-func UpdateAutor(ctx context.Context, repo AutorRepository, id int32, nombre, pais string, fechaNacimiento Date, biografia string) (*Autor, error) {
+func UpdateAutor(ctx context.Context, uow UnitOfWork, id int32, nombre, pais string, fechaNacimiento Date, biografia string) (*Autor, error) {
 	if err := validateAutor(nombre, pais, biografia, fechaNacimiento); err != nil {
 		return nil, fmt.Errorf("error al validar autor: %w", err)
 	}
-	return repo.Update(ctx, id, nombre, pais, fechaNacimiento, biografia)
+	var actualizado *Autor
+	err := uow.Execute(ctx, func(store RepositoryProvider) error {
+		// Si el autor tenía edad suficiente para su primer libro, también para los posteriores.
+		primero, tieneLibros, err := store.Libros().PrimerLanzamientoDelAutor(ctx, id)
+		if err != nil {
+			return err
+		}
+		if tieneLibros {
+			if err := ValidarEdadAlLanzamiento(fechaNacimiento, primero); err != nil {
+				return err
+			}
+		}
+		actualizado, err = store.Autores().Update(ctx, id, nombre, pais, fechaNacimiento, biografia)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return actualizado, nil
 }
 
 func DeleteAutor(ctx context.Context, repo AutorRepository, id int32) error {

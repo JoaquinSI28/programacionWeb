@@ -51,27 +51,18 @@ func validateIDAutor(idAutor int32) error {
 	return nil
 }
 
-func CreateLibro(ctx context.Context, repo LibroRepository, idAutor int32, titulo string, idEditorial int32, fechaLanzamiento Date, cantidadPaginas int32) (*Libro, error) {
-	if err := validateTitulo(titulo); err != nil {
-		return nil, fmt.Errorf("error al validar título: %w", err)
+func validarCronologiaLibro(ctx context.Context, autores AutorRepository, idAutor int32, lanzamiento Date) error {
+	autor, err := autores.FindById(ctx, idAutor)
+	if errors.Is(err, ErrAutorNoEncontrado) {
+		return ErrReferencia
 	}
-	if err := validateIDAutor(idAutor); err != nil {
-		return nil, fmt.Errorf("error al validar ID de autor: %w", err)
+	if err != nil {
+		return err
 	}
-	if err := validateIDEditorial(idEditorial); err != nil {
-		return nil, fmt.Errorf("error al validar ID de editorial: %w", err)
-	}
-	if err := validarFecha(fechaLanzamiento, "La fecha de lanzamiento"); err != nil {
-		return nil, fmt.Errorf("error al validar fecha de lanzamiento: %w", err)
-	}
-	if err := validateCantidadPaginas(cantidadPaginas); err != nil {
-		return nil, fmt.Errorf("error al validar cantidad de páginas: %w", err)
-	}
-
-	return repo.Create(ctx, idAutor, titulo, idEditorial, fechaLanzamiento, cantidadPaginas)
+	return ValidarEdadAlLanzamiento(autor.FechaNacimiento, lanzamiento)
 }
 
-func UpdateLibro(ctx context.Context, repo LibroRepository, id int32, idAutor int32, titulo string, idEditorial int32, fechaLanzamiento Date, cantidadPaginas int32) (*Libro, error) {
+func CreateLibro(ctx context.Context, uow UnitOfWork, idAutor int32, titulo string, idEditorial int32, fechaLanzamiento Date, cantidadPaginas int32) (*Libro, error) {
 	if err := validateTitulo(titulo); err != nil {
 		return nil, fmt.Errorf("error al validar título: %w", err)
 	}
@@ -88,7 +79,51 @@ func UpdateLibro(ctx context.Context, repo LibroRepository, id int32, idAutor in
 		return nil, fmt.Errorf("error al validar cantidad de páginas: %w", err)
 	}
 
-	return repo.Update(ctx, id, idAutor, titulo, idEditorial, fechaLanzamiento, cantidadPaginas)
+	var creado *Libro
+	err := uow.Execute(ctx, func(store RepositoryProvider) error {
+		if err := validarCronologiaLibro(ctx, store.Autores(), idAutor, fechaLanzamiento); err != nil {
+			return err
+		}
+		var err error
+		creado, err = store.Libros().Create(ctx, idAutor, titulo, idEditorial, fechaLanzamiento, cantidadPaginas)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return creado, nil
+}
+
+func UpdateLibro(ctx context.Context, uow UnitOfWork, id int32, idAutor int32, titulo string, idEditorial int32, fechaLanzamiento Date, cantidadPaginas int32) (*Libro, error) {
+	if err := validateTitulo(titulo); err != nil {
+		return nil, fmt.Errorf("error al validar título: %w", err)
+	}
+	if err := validateIDAutor(idAutor); err != nil {
+		return nil, fmt.Errorf("error al validar ID de autor: %w", err)
+	}
+	if err := validateIDEditorial(idEditorial); err != nil {
+		return nil, fmt.Errorf("error al validar ID de editorial: %w", err)
+	}
+	if err := validarFecha(fechaLanzamiento, "La fecha de lanzamiento"); err != nil {
+		return nil, fmt.Errorf("error al validar fecha de lanzamiento: %w", err)
+	}
+	if err := validateCantidadPaginas(cantidadPaginas); err != nil {
+		return nil, fmt.Errorf("error al validar cantidad de páginas: %w", err)
+	}
+
+	var actualizado *Libro
+	err := uow.Execute(ctx, func(store RepositoryProvider) error {
+		if err := validarCronologiaLibro(ctx, store.Autores(), idAutor, fechaLanzamiento); err != nil {
+			return err
+		}
+		var err error
+		actualizado, err = store.Libros().Update(ctx, id, idAutor, titulo, idEditorial, fechaLanzamiento, cantidadPaginas)
+		return err
+	})
+	if err != nil {
+		return nil, err
+	}
+	return actualizado, nil
 }
 
 func GetLibro(ctx context.Context, repo LibroRepository, id int32) (*Libro, error) {

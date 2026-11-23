@@ -123,8 +123,8 @@ func TestReglasConEscriturasConcurrentes(t *testing.T) {
 		}
 	})
 	t.Run("publicación y cambio de nacimiento", func(t *testing.T) {
-		autores := repository.NewAutorSQL(conn)
-		libros := repository.NewLibroSQL(conn)
+		autores := repository.NewAutorSQL(queries)
+		uow := repository.NewSQLUnitOfWork(conn)
 		editorial, err := editoriales.Create(ctx, "La Página", "Azul")
 		if err != nil {
 			t.Fatal(err)
@@ -136,10 +136,10 @@ func TestReglasConEscriturasConcurrentes(t *testing.T) {
 		}
 		lanzamiento := time.Date(2005, 2, 28, 0, 0, 0, 0, time.UTC)
 		err = conflictoConcurrente(t, func() error {
-			_, err := libros.Create(ctx, autor.IDAutor, "Cuentos", editorial.IDEditorial, lanzamiento, 20)
+			_, err := logic.CreateLibro(ctx, uow, autor.IDAutor, "Cuentos", editorial.IDEditorial, lanzamiento, 20)
 			return err
 		}, func() error {
-			_, err := autores.Update(ctx, autor.IDAutor, autor.Nombre, autor.Pais, nacimiento.AddDate(0, 0, 1), autor.Biografia)
+			_, err := logic.UpdateAutor(ctx, uow, autor.IDAutor, autor.Nombre, autor.Pais, nacimiento.AddDate(0, 0, 1), autor.Biografia)
 			return err
 		})
 		var validacion *logic.ErrorValidacion

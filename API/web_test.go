@@ -249,8 +249,8 @@ func TestHTMLFragments(t *testing.T) {
 		post(t, "/usuarios", url.Values{"nombre": {strings.ToUpper(username)}, "email": {"otro" + username + "@example.com"}, "contrasena": {"clave"}}, http.StatusConflict)
 		post(t, "/usuarios", url.Values{"nombre": {"otro" + username}, "email": {strings.ToUpper(userForm.Get("email"))}, "contrasena": {"clave"}}, http.StatusConflict)
 		post(t, "/editoriales", url.Values{"nombre": {strings.Repeat("ñ", 256)}, "sede": {"Tandil"}}, http.StatusBadRequest)
-		autoresRepo := repository.NewAutorSQL(conn)
-		if _, err := logic.UpdateAutor(ctx, autoresRepo, authorID, authorName, "Argentina", time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC), "Biografía"); err == nil {
+		uow := repository.NewSQLUnitOfWork(conn)
+		if _, err := logic.UpdateAutor(ctx, uow, authorID, authorName, "Argentina", time.Date(9999, 1, 1, 0, 0, 0, 0, time.UTC), "Biografía"); err == nil {
 			t.Fatal("la capa de lógica aceptó un nacimiento futuro")
 		}
 		if _, err := conn.Exec("DELETE FROM libro WHERE titulo = $1 AND fecha_lanzamiento = DATE '2020-02-29'", title); err != nil {
@@ -263,12 +263,11 @@ func TestHTMLFragments(t *testing.T) {
 		if body := post(t, "/libros", bookForm, http.StatusBadRequest); !strings.Contains(body, "5 años cumplidos") {
 			t.Fatal("falta el motivo de la cronología inválida")
 		}
-		autoresRepo := repository.NewAutorSQL(conn)
-		librosRepo := repository.NewLibroSQL(conn)
-		if _, err := logic.UpdateLibro(ctx, librosRepo, bookID, authorID, title, editorialID, time.Date(1979, 12, 31, 0, 0, 0, 0, time.UTC), 250); err == nil {
+		uow := repository.NewSQLUnitOfWork(conn)
+		if _, err := logic.UpdateLibro(ctx, uow, bookID, authorID, title, editorialID, time.Date(1979, 12, 31, 0, 0, 0, 0, time.UTC), 250); err == nil {
 			t.Fatal("la capa de lógica permitió un libro anterior al nacimiento")
 		}
-		if _, err := logic.UpdateAutor(ctx, autoresRepo, authorID, authorName, "Argentina", time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC), "Biografía"); err == nil {
+		if _, err := logic.UpdateAutor(ctx, uow, authorID, authorName, "Argentina", time.Date(2021, 1, 1, 0, 0, 0, 0, time.UTC), "Biografía"); err == nil {
 			t.Fatal("la capa de lógica permitió invalidar libros al cambiar el autor")
 		}
 		// Se rechazan el nacimiento y el día anterior al quinto cumpleaños.

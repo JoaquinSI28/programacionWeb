@@ -22,6 +22,7 @@ import (
 )
 
 type webApp struct {
+	uow         logic.UnitOfWork
 	libros      logic.LibroRepository
 	autores     logic.AutorRepository
 	editoriales logic.EditorialRepository
@@ -31,7 +32,8 @@ type webApp struct {
 func newWebHandler(conn *sql.DB) http.Handler {
 	queries := dbsqlc.New(conn)
 	app := &webApp{
-		libros: repository.NewLibroSQL(conn), autores: repository.NewAutorSQL(conn),
+		uow: repository.NewSQLUnitOfWork(conn),
+		libros: repository.NewLibroSQL(queries), autores: repository.NewAutorSQL(queries),
 		editoriales: repository.NewEditorialSQL(queries), usuarios: repository.NewUsuarioSQL(queries),
 	}
 	mux := http.NewServeMux()
@@ -274,7 +276,7 @@ func (app *webApp) createLibro(ctx context.Context, values url.Values) error {
 	if err != nil {
 		return err
 	}
-	_, err = logic.CreateLibro(ctx, app.libros, autor, values.Get("titulo"), editorial, date, pages)
+	_, err = logic.CreateLibro(ctx, app.uow, autor, values.Get("titulo"), editorial, date, pages)
 	return err
 }
 

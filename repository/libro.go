@@ -11,43 +11,20 @@ import (
 
 // LibroSQL implementa logic.LibroRepository usando las consultas de sqlc.
 type LibroSQL struct {
-	conn    *sql.DB
 	queries *dbsqlc.Queries
 }
 
-func NewLibroSQL(conn *sql.DB) *LibroSQL {
-	return &LibroSQL{conn: conn, queries: dbsqlc.New(conn)}
-}
-
-// El nacimiento consultado y la escritura del libro pertenecen a la misma transacción.
-func (r *LibroSQL) conEdadValidada(ctx context.Context, idAutor int32, lanzamiento logic.Date, escribir func(*dbsqlc.Queries) error) error {
-	return conTransaccionSerializable(ctx, r.conn, func(q *dbsqlc.Queries) error {
-		autor, err := q.GetAutor(ctx, idAutor)
-		if errors.Is(err, sql.ErrNoRows) {
-			return logic.ErrReferencia
-		}
-		if err != nil {
-			return err
-		}
-		if err := logic.ValidarEdadAlLanzamiento(autor.FechaNacimiento, lanzamiento); err != nil {
-			return err
-		}
-		return escribir(q)
-	})
+func NewLibroSQL(queries *dbsqlc.Queries) *LibroSQL {
+	return &LibroSQL{queries: queries}
 }
 
 func (r *LibroSQL) Create(ctx context.Context, idAutor int32, titulo string, idEditorial int32, fechaLanzamiento logic.Date, cantidadPaginas int32) (*logic.Libro, error) {
-	var creado dbsqlc.Libro
-	err := r.conEdadValidada(ctx, idAutor, fechaLanzamiento, func(q *dbsqlc.Queries) error {
-		var err error
-		creado, err = q.CreateLibro(ctx, dbsqlc.CreateLibroParams{
-			Titulo:           titulo,
-			IDAutor:          idAutor,
-			IDEditorial:      idEditorial,
-			FechaLanzamiento: fechaLanzamiento,
-			CantidadPaginas:  cantidadPaginas,
-		})
-		return err
+	creado, err := r.queries.CreateLibro(ctx, dbsqlc.CreateLibroParams{
+		Titulo:           titulo,
+		IDAutor:          idAutor,
+		IDEditorial:      idEditorial,
+		FechaLanzamiento: fechaLanzamiento,
+		CantidadPaginas:  cantidadPaginas,
 	})
 	if err != nil {
 		return nil, errorPersistencia(err)
@@ -109,14 +86,11 @@ func (r *LibroSQL) Delete(ctx context.Context, id int32) error {
 }
 
 func (r *LibroSQL) Update(ctx context.Context, id int32, idAutor int32, titulo string, idEditorial int32, fechaLanzamiento logic.Date, cantidadPaginas int32) (*logic.Libro, error) {
-	err := r.conEdadValidada(ctx, idAutor, fechaLanzamiento, func(q *dbsqlc.Queries) error {
-		_, err := q.UpdateLibro(ctx, dbsqlc.UpdateLibroParams{
-			IDLibro: id, Titulo: titulo, IDAutor: idAutor, IDEditorial: idEditorial,
-			FechaLanzamiento: fechaLanzamiento, CantidadPaginas: cantidadPaginas,
-		})
-		return errorDeEscritura(err, logic.ErrLibroNoEncontrado)
+	_, err := r.queries.UpdateLibro(ctx, dbsqlc.UpdateLibroParams{
+		IDLibro: id, Titulo: titulo, IDAutor: idAutor, IDEditorial: idEditorial,
+		FechaLanzamiento: fechaLanzamiento, CantidadPaginas: cantidadPaginas,
 	})
-	if err != nil {
+	if err := errorDeEscritura(err, logic.ErrLibroNoEncontrado); err != nil {
 		return nil, err
 	}
 
@@ -128,6 +102,17 @@ func (r *LibroSQL) Update(ctx context.Context, id int32, idAutor int32, titulo s
 		FechaLanzamiento: fechaLanzamiento,
 		CantidadPaginas:  cantidadPaginas,
 	}, nil
+}
+
+func (r *LibroSQL) PrimerLanzamientoDelAutor(ctx context.Context, idAutor int32) (logic.Date, bool, error) {
+	primero, err := r.queries.PrimerLanzamientoDelAutor(ctx, idAutor)
+	if errors.Is(err, sql.ErrNoRows) {
+		return logic.Date{}, false, nil
+	}
+	if err != nil {
+		return logic.Date{}, false, err
+	}
+	return primero, true, nil
 }
 
 var _ logic.LibroRepository = (*LibroSQL)(nil)

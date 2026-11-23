@@ -10,12 +10,11 @@ import (
 )
 
 type AutorSQL struct {
-	conn    *sql.DB
 	queries *dbsqlc.Queries
 }
 
-func NewAutorSQL(conn *sql.DB) *AutorSQL {
-	return &AutorSQL{conn: conn, queries: dbsqlc.New(conn)}
+func NewAutorSQL(queries *dbsqlc.Queries) *AutorSQL {
+	return &AutorSQL{queries: queries}
 }
 
 func (r *AutorSQL) Create(ctx context.Context, nombre, pais string, fechaNacimiento logic.Date, biografia string) (*logic.Autor, error) {
@@ -76,23 +75,10 @@ func (r *AutorSQL) List(ctx context.Context) ([]*logic.Autor, error) {
 }
 
 func (r *AutorSQL) Update(ctx context.Context, id int32, nombre, pais string, fechaNacimiento logic.Date, biografia string) (*logic.Autor, error) {
-	err := conTransaccionSerializable(ctx, r.conn, func(q *dbsqlc.Queries) error {
-		// Si el autor tenía edad suficiente para su primer libro, también para los posteriores.
-		primero, err := q.PrimerLanzamientoDelAutor(ctx, id)
-		switch {
-		case err == nil:
-			if err := logic.ValidarEdadAlLanzamiento(fechaNacimiento, primero); err != nil {
-				return err
-			}
-		case !errors.Is(err, sql.ErrNoRows):
-			return err
-		}
-		_, err = q.UpdateAutor(ctx, dbsqlc.UpdateAutorParams{
-			IDAutor: id, Nombre: nombre, Pais: pais, FechaNacimiento: fechaNacimiento, Biografia: biografia,
-		})
-		return errorDeEscritura(err, logic.ErrAutorNoEncontrado)
+	_, err := r.queries.UpdateAutor(ctx, dbsqlc.UpdateAutorParams{
+		IDAutor: id, Nombre: nombre, Pais: pais, FechaNacimiento: fechaNacimiento, Biografia: biografia,
 	})
-	if err != nil {
+	if err := errorDeEscritura(err, logic.ErrAutorNoEncontrado); err != nil {
 		return nil, err
 	}
 
