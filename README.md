@@ -3,7 +3,7 @@ Aquí se realizaran entregas de trabajos prácticos para la materia
 Programación Web de la Universidad Nacional de la Provincia de Buenos Aires
 del curso 2026.
 
-**Para ejecutar la entrega actual**, ver [Ejecución del TP5](#ejecución-del-tp5).
+[Ejecutar el TP6](#cómo-ejecutar-bookfly) · [Guía del catálogo](docs/Documentacion.md)
 
 # Dominio
 Un registro de libros leídos será el tema principal de la app.
@@ -34,6 +34,11 @@ Las claves foráneas garantizan que un libro solo pueda referenciar autores y ed
 Las consultas SQL se encuentran en `db/queries/`. sqlc las transforma en código Go dentro de `db/sqlc/`, que es una carpeta generada automáticamente y no se versiona. La configuración de esta generación está en `sqlc.yaml`.
 
 Docker Compose utiliza un volumen llamado `pgdata` para conservar los datos de PostgreSQL entre ejecuciones. Los comandos de pruebas eliminan ese volumen antes de comenzar y al finalizar porque los tests utilizan una base de datos temporal.
+
+## Trabajos prácticos anteriores
+
+<details>
+<summary><strong>TP3 · Persistencia y API JSON</strong></summary>
 
 > Las instrucciones de pruebas, los endpoints JSON y las aclaraciones que siguen corresponden a la rama `tp3`.
 
@@ -172,6 +177,18 @@ Los errores se devuelven como JSON, por ejemplo `{"error":"Usuario no encontrado
 ### Aclaraciones
 En esta entrega las contraseñas se almacenan en texto plano. Se optó por dejar el hashing de contraseñas y la autenticación para mas adelante.
 
+</details>
+
+<details>
+<summary><strong>TP4 · Interfaz web estática</strong></summary>
+
+En la rama `tp4` se incorporó la interfaz web de la biblioteca. [Guía del TP4](https://github.com/JoaquinSI28/programacionWeb/blob/tp4/docs/TP4.md)
+
+</details>
+
+<details>
+<summary><strong>TP5 · Formularios HTML y pruebas</strong></summary>
+
 # Ejecución del TP5
 
 En esta rama, Bookfly continúa la interfaz del TP4. El servidor Go consulta PostgreSQL mediante sqlc y usa componentes templ para mostrar los libros, autores, editoriales y usuarios en una página HTML. La relación `Lee` sigue en la capa de datos.
@@ -206,6 +223,8 @@ make test-all
 ```
 
 Las pruebas crean y eliminan el volumen del proyecto. Los componentes de la vista, las rutas y las verificaciones de la entrega están documentados en [docs/TP5.md](docs/TP5.md).
+
+</details>
 
 # TP6 · Altas y bajas sin recargar la página
 
